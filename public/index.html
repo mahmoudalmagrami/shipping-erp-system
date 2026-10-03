@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="pageTitle">نظام إدارة الشحن والترحيل المالي</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    html[dir="rtl"] body { font-family: 'Cairo', sans-serif; }
+    html[dir="ltr"] body { font-family: 'Inter', sans-serif; }
+    .badge-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    html.is-authenticated #loginScreen { display: none !important; }
+    html.is-authenticated #appDashboard { display: block !important; }
+  </style>
+  <script>
+    // Fast pre-render session check using sessionStorage:
+    // Keeps user logged in across page refreshes (F5) in the current tab,
+    // while ensuring any new tab or fresh visit always opens the modern login screen!
+    try {
+      localStorage.removeItem('shipping_auth_token');
+      localStorage.removeItem('shipping_auth_user');
+
+      if (sessionStorage.getItem('shipping_auth_token')) {
+        document.documentElement.classList.add('is-authenticated');
+      }
+    } catch (e) {}
+  </script>
+</head>
+<body class="bg-slate-900 text-slate-800 antialiased min-h-screen">
+
+  <!-- ============================================================== -->
+  <!-- 1. FULL-SCREEN OPAQUE LOGIN SCREEN (100% PRIVATE & LUXURIOUS) -->
+  <!-- ============================================================== -->
+  <div id="loginScreen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 p-4 min-h-screen overflow-y-auto select-none">
+    
+    <!-- Ambient Modern Background Elements -->
+    <div class="fixed inset-0 bg-gradient-to-br from-slate-950 via-[#0B1120] to-indigo-950"></div>
+    <div class="fixed inset-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px); background-size: 28px 28px;"></div>
+    <div class="fixed -top-32 -left-32 w-96 h-96 bg-indigo-600/25 rounded-full blur-[128px] pointer-events-none"></div>
+    <div class="fixed -bottom-32 -right-32 w-96 h-96 bg-cyan-600/20 rounded-full blur-[128px] pointer-events-none"></div>
+    <div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-blue-600/10 rounded-full blur-[160px] pointer-events-none"></div>
+
+    <!-- Login Glassmorphic Card -->
+    <div class="relative bg-slate-900/85 backdrop-blur-2xl rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.9)] border border-slate-700/60 max-w-lg w-full overflow-hidden animate-fade-in my-6 text-slate-100 z-10">
+      
+      <!-- Top Action Bar (Security badge + Language Switcher) -->
+      <div class="flex items-center justify-between px-6 pt-5 pb-2 text-xs border-b border-slate-800/80">
+        <div class="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400 bg-emerald-950/50 border border-emerald-500/30 px-2.5 py-1 rounded-full">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>🔒 تشفير 256-bit آمن</span>
+        </div>
+        <button onclick="toggleLanguage()" class="px-3 py-1 bg-slate-800/80 hover:bg-slate-700 text-indigo-200 text-xs font-bold rounded-lg border border-slate-700 backdrop-blur-xs transition flex items-center gap-1.5 shadow-xs">
+          <span>🌐</span>
+          <span class="loginLangText">English</span>
+        </button>
+      </div>
+
+      <!-- Card Header -->
+      <div class="p-6 text-center relative pt-4 pb-2">
+        <div class="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-indigo-500 rounded-2xl mx-auto flex items-center justify-center text-3xl mb-3 shadow-lg shadow-indigo-500/30 border border-indigo-400/40">
+          📦
+        </div>
+        <h3 class="text-xl font-black tracking-tight text-white" data-i18n="appTitle">نظام الشحن والترحيل المالي</h3>
+        <p class="text-xs text-indigo-300 mt-1 max-w-sm mx-auto" data-i18n="loginModalSubtitle">منصة الترحيل المزدوج وإدارة بوالص الموردين والقيود المحاسبية</p>
+      </div>
+
+      <!-- Quick Role Switcher Buttons -->
+      <div class="px-6 py-4 space-y-4">
+        <div>
+          <label class="block text-xs font-black text-slate-300 mb-2.5" data-i18n="quickLoginTitle">⚡ تسجيل دخول سريع لتجربة الصلاحيات (RBAC):</label>
+          <div class="grid grid-cols-2 gap-2.5">
+            <!-- 1. Admin -->
+            <button type="button" onclick="quickLogin('admin', 'admin123')" class="p-3 bg-slate-800/60 hover:bg-indigo-950/60 border border-indigo-500/30 hover:border-indigo-400 rounded-2xl text-start transition duration-200 group flex items-center gap-2.5 shadow-xs">
+              <span class="text-2xl p-1.5 bg-indigo-900/50 rounded-xl border border-indigo-500/30 group-hover:scale-105 transition">👑</span>
+              <div>
+                <div class="text-xs font-bold text-white group-hover:text-indigo-300 transition" data-i18n="roleAdmin">المدير العام</div>
+                <div class="text-[10px] text-slate-400 font-mono">admin / admin123</div>
+              </div>
+            </button>
+            
+            <!-- 2. Cashier -->
+            <button type="button" onclick="quickLogin('cashier', 'cashier123')" class="p-3 bg-slate-800/60 hover:bg-amber-950/60 border border-amber-500/30 hover:border-amber-400 rounded-2xl text-start transition duration-200 group flex items-center gap-2.5 shadow-xs">
+              <span class="text-2xl p-1.5 bg-amber-900/50 rounded-xl border border-amber-500/30 group-hover:scale-105 transition">💵</span>
+              <div>
+                <div class="text-xs font-bold text-white group-hover:text-amber-300 transition" data-i18n="roleCashier">كاشير الاستقبال</div>
+                <div class="text-[10px] text-slate-400 font-mono">cashier / cashier123</div>
+              </div>
+            </button>
+            
+            <!-- 3. Warehouse -->
+            <button type="button" onclick="quickLogin('warehouse', 'wh123')" class="p-3 bg-slate-800/60 hover:bg-orange-950/60 border border-orange-500/30 hover:border-orange-400 rounded-2xl text-start transition duration-200 group flex items-center gap-2.5 shadow-xs">
+              <span class="text-2xl p-1.5 bg-orange-900/50 rounded-xl border border-orange-500/30 group-hover:scale-105 transition">🚚</span>
+              <div>
+                <div class="text-xs font-bold text-white group-hover:text-orange-300 transition" data-i18n="roleWarehouse">مسؤول المستودع</div>
+                <div class="text-[10px] text-slate-400 font-mono">warehouse / wh123</div>
+              </div>
+            </button>
+            
+            <!-- 4. Accountant -->
+            <button type="button" onclick="quickLogin('accountant', 'acc123')" class="p-3 bg-slate-800/60 hover:bg-cyan-950/60 border border-cyan-500/30 hover:border-cyan-400 rounded-2xl text-start transition duration-200 group flex items-center gap-2.5 shadow-xs">
+              <span class="text-2xl p-1.5 bg-cyan-900/50 rounded-xl border border-cyan-500/30 group-hover:scale-105 transition">📊</span>
+              <div>
+                <div class="text-xs font-bold text-white group-hover:text-cyan-300 transition" data-i18n="roleAccountant">المحاسب المالي</div>
+                <div class="text-[10px] text-slate-400 font-mono">accountant / acc123</div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div class="relative flex items-center justify-center my-3">
+          <div class="border-t border-slate-700/80 w-full"></div>
+          <span class="bg-slate-900 px-3 text-[11px] font-bold text-slate-400 absolute" data-i18n="orManualLogin">أو الدخول اليدوي</span>
+        </div>
+
+        <!-- Manual Login Form -->
+        <form id="loginForm" onsubmit="handleManualLogin(event)" class="space-y-3 pb-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1" data-i18n="usernameLabel">اسم المستخدم</label>
+            <input type="text" id="loginUsername" required placeholder="admin" class="w-full text-xs font-semibold px-3.5 py-2.5 border border-slate-700 rounded-xl bg-slate-950/70 text-white placeholder-slate-500 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 focus:outline-none transition">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1" data-i18n="passwordLabel">كلمة المرور</label>
+            <input type="password" id="loginPassword" required placeholder="••••••••" class="w-full text-xs font-semibold px-3.5 py-2.5 border border-slate-700 rounded-xl bg-slate-950/70 text-white placeholder-slate-500 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 focus:outline-none transition">
+          </div>
+
+          <div id="loginErrorBox" class="hidden p-3 bg-rose-950/60 border border-rose-500/50 text-rose-300 text-xs font-bold rounded-xl text-center"></div>
+
+          <button type="submit" id="loginSubmitBtn" class="w-full py-3 bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-black text-xs rounded-xl shadow-lg shadow-indigo-600/30 transition duration-200 flex items-center justify-center gap-2">
+            <span>🔓</span> <span data-i18n="loginBtnText">تسجيل الدخول للنظام</span>
+          </button>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- 2. MAIN APPLICATION DASHBOARD (HIDDEN UNTIL AUTH) -->
+  <!-- ============================================== -->
+  <div id="appDashboard" class="hidden bg-slate-100 min-h-screen">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg border-b border-indigo-500/20 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3.5 flex flex-wrap justify-between items-center gap-3">
+      <div class="flex items-center space-x-3 rtl:space-x-reverse">
+        <div class="w-11 h-11 bg-indigo-600 rounded-xl flex items-center justify-center font-black text-2xl shadow-inner border border-indigo-400/30">
+          📦
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-black tracking-tight text-white" data-i18n="appTitle">نظام الشحن والترحيل المالي</h1>
+            <span class="bg-indigo-500/20 border border-indigo-400/30 text-indigo-200 text-[10px] px-2 py-0.5 rounded-full font-bold" data-i18n="versionBadge">نسخة الإنتاج v1.0</span>
+          </div>
+          <p class="text-xs text-indigo-300" data-i18n="appSubtitle">إدارة متكاملة للطلبات الأولية، الترحيل لبوالص الموردين، والقيود المحاسبية التلقائية</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <!-- User Profile & RBAC Badge -->
+        <div id="userProfileSection" class="flex items-center gap-2 bg-indigo-900/60 border border-indigo-400/30 rounded-xl px-2.5 py-1">
+          <div class="w-7 h-7 rounded-lg bg-indigo-500/40 flex items-center justify-center font-bold text-xs" id="userAvatar">
+            👤
+          </div>
+          <div class="text-right rtl:text-right ltr:text-left">
+            <div id="userNameDisplay" class="text-xs font-black text-white leading-tight">يرجى تسجيل الدخول</div>
+            <div id="userRoleBadge" class="text-[10px] text-amber-300 font-bold">غير مسجل (Guest)</div>
+          </div>
+          <button onclick="openLoginModal()" title="تبديل المستخدم" class="p-1 hover:bg-indigo-700/50 rounded text-xs transition">
+            🔄
+          </button>
+          <button onclick="logoutUser()" title="تسجيل خروج" class="p-1 hover:bg-rose-900/50 text-rose-300 rounded text-xs transition">
+            🚪
+          </button>
+        </div>
+
+        <!-- Language Switcher Button -->
+        <button onclick="toggleLanguage()" id="langSwitchBtn" class="px-3.5 py-1.5 bg-indigo-600/60 hover:bg-indigo-600 text-white text-xs font-bold rounded-xl border border-indigo-400/40 transition flex items-center gap-1.5 shadow-xs">
+          <span id="langFlag">🌐</span>
+          <span id="langText">English</span>
+        </button>
+
+        <button onclick="refreshAllData()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-200 text-xs font-bold rounded-xl border border-slate-700 transition flex items-center gap-1.5">
+          <span>🔄</span> <span data-i18n="refreshBtn">تحديث الأرصدة</span>
+        </button>
+
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 rtl:ml-1.5 ltr:mr-1.5 badge-pulse"></span>
+          <span data-i18n="serverOnline">الخادم متصل</span>
+        </span>
+
+        <!-- Live Sync Status Badge -->
+        <span id="liveSyncIndicator" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-all duration-300" title="المزامنة التلقائية اللحظية">
+          <span id="liveSyncDot" class="w-2 h-2 rounded-full bg-cyan-400 rtl:ml-1.5 ltr:mr-1.5"></span>
+          <span id="liveSyncText" data-i18n="liveSyncActive">مزامنة لحظية</span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Live Financial Dashboard KPIs -->
+  <section class="max-w-7xl mx-auto px-4 mt-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+      <!-- 1. Cash Box -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs font-bold text-slate-500" data-i18n="kpiCashBox">الصندوق الرئيسي</p>
+            <h3 id="kpi-cash-box" class="text-2xl font-black text-emerald-600 mt-1">0.00 $</h3>
+            <p class="text-[11px] text-slate-400 mt-0.5" data-i18n="kpiCashBoxDesc">جاهز للقبض النقدي</p>
+          </div>
+          <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold text-lg">
+            💵
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Bank / Exchange -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs font-bold text-slate-500" data-i18n="kpiBank">حساب الصراف / البنك</p>
+            <h3 id="kpi-bank" class="text-2xl font-black text-teal-600 mt-1">0.00 $</h3>
+            <p class="text-[11px] text-slate-400 mt-0.5" data-i18n="kpiBankDesc">الحوالات والإيداعات</p>
+          </div>
+          <div class="w-10 h-10 bg-teal-50 text-teal-600 rounded-xl flex items-center justify-center font-bold text-lg">
+            🏦
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Sales Revenue -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs font-bold text-slate-500" data-i18n="kpiSales">إجمالي المبيعات</p>
+            <h3 id="kpi-sales" class="text-2xl font-black text-blue-600 mt-1">0.00 $</h3>
+            <p class="text-[11px] text-slate-400 mt-0.5" data-i18n="kpiSalesDesc">عن الطلبات الأولية</p>
+          </div>
+          <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold text-lg">
+            📈
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Carrier Payables -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs font-bold text-slate-500" data-i18n="kpiPayables">مستحقات الموردين</p>
+            <h3 id="kpi-payables" class="text-2xl font-black text-rose-600 mt-1">0.00 $</h3>
+            <p class="text-[11px] text-slate-400 mt-0.5" data-i18n="kpiPayablesDesc">للشحنات المرحّلة</p>
+          </div>
+          <div class="w-10 h-10 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center font-bold text-lg">
+            🏢
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Gross Profit -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs font-bold text-slate-500" data-i18n="kpiProfit">صافي الربح المحقق</p>
+            <h3 id="kpi-profit" class="text-2xl font-black text-indigo-700 mt-1">0.00 $</h3>
+            <p id="kpi-margin" class="text-[11px] text-indigo-500 font-semibold mt-0.5">هامش الربح: 0%</p>
+          </div>
+          <div class="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold text-lg">
+            💎
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Tabs Content -->
+  <main class="max-w-7xl mx-auto px-4 mt-6 pb-20">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      
+      <!-- Tab Headers -->
+      <div class="flex border-b border-slate-200 bg-slate-50/70 px-4 pt-2.5 space-x-2 rtl:space-x-reverse overflow-x-auto">
+        <button onclick="switchTab('booking')" id="tab-btn-booking" class="px-5 py-3 font-bold text-sm border-b-2 border-indigo-600 text-indigo-600 flex items-center gap-2 whitespace-nowrap">
+          <span>📝</span> <span data-i18n="tabBooking">1. حجز طلب أولي جديد</span>
+        </button>
+        <button onclick="switchTab('dispatch')" id="tab-btn-dispatch" class="px-5 py-3 font-semibold text-sm border-b-2 border-transparent text-slate-600 hover:text-indigo-600 flex items-center gap-2 whitespace-nowrap">
+          <span>🚚</span> <span data-i18n="tabDispatch">2. محطة الترحيل للنهائي (بوالص الموردين)</span>
+          <span id="pending-badge" class="bg-amber-100 text-amber-900 border border-amber-300 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+        </button>
+        <button onclick="switchTab('orders')" id="tab-btn-orders" class="px-5 py-3 font-semibold text-sm border-b-2 border-transparent text-slate-600 hover:text-indigo-600 flex items-center gap-2 whitespace-nowrap">
+          <span>📋</span> <span data-i18n="tabOrders">3. سجل كافة الشحنات</span>
+        </button>
+        <button onclick="switchTab('pricing')" id="tab-btn-pricing" class="px-5 py-3 font-semibold text-sm border-b-2 border-transparent text-slate-600 hover:text-indigo-600 flex items-center gap-2 whitespace-nowrap">
+          <span>🌐</span> <span data-i18n="tabPricing">4. مصفوفة الشرائح والوجهات</span>
+        </button>
+        <button onclick="switchTab('ledger')" id="tab-btn-ledger" class="px-5 py-3 font-semibold text-sm border-b-2 border-transparent text-slate-600 hover:text-indigo-600 flex items-center gap-2 whitespace-nowrap">
+          <span>📊</span> <span data-i18n="tabLedger">5. القيود المحاسبية واليومية</span>
+        </button>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- TAB 1: Initial Order Booking -->
+      <!-- ============================================== -->
+      <div id="tab-booking" class="p-6">
+        <div class="mb-5 pb-3 border-b border-slate-100 flex flex-wrap justify-between items-center gap-3">
+          <div>
+            <h2 class="text-lg font-black text-slate-800" data-i18n="bookingHeading">حجز طلب أولي من العميل (Initial Booking)</h2>
+            <p class="text-xs text-slate-500" data-i18n="bookingSubheading">تسجيل بيانات المرسل، المستلم، الوزن، والوجهة. يؤثر مباشرة على الصندوق أو الصراف وحساب العميل والمبيعات.</p>
+          </div>
+          <div class="bg-indigo-50 border border-indigo-200/80 px-3.5 py-1.5 rounded-xl text-xs font-bold text-indigo-800" data-i18n="bookingSerialBadge">
+            📌 رقم تسلسلي مستقل يتولد تلقائياً لكل طلب
+          </div>
+        </div>
+
+        <form id="orderForm" onsubmit="submitInitialOrder(event)" class="space-y-6">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Card 1: Sender Data -->
+            <div class="bg-slate-50/80 p-5 rounded-2xl border border-slate-200 space-y-4">
+              <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2 text-indigo-700">
+                <span class="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center text-xs">👤</span>
+                <span data-i18n="senderSectionTitle">بيانات المرسل (العميل)</span>
+              </h3>
+              
+              <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1" data-i18n="customerSelectLabel">اسم العميل المسجل (اختياري)</label>
+                <select id="registeredCustomerSelect" onchange="onSelectRegisteredCustomer()" class="w-full text-xs font-semibold px-3 py-2 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                  <option value="" data-i18n="newCustomerOption">-- عميل نقدي جديد / إدخال يدوي --</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="senderNameLabel">اسم المرسل الكامل *</label>
+                <input type="text" id="senderName" required data-i18n-placeholder="senderNamePlaceholder" placeholder="مثال: مؤسسة النور التجارية" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="senderPhoneLabel">رقم هاتف المرسل *</label>
+                <input type="tel" id="senderPhone" required placeholder="+966 50 123 4567" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="paymentTypeLabel">طريقة السداد والتأثير المالي الفوري *</label>
+                <select id="paymentType" class="w-full text-xs font-bold px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                  <option value="cash" data-i18n="payCash">💵 نقداً بالصندوق (يزيد الصندوق فوراً)</option>
+                  <option value="bank" data-i18n="payBank">🏦 تحويل عبر الصراف / البنك (يزيد حساب الصراف فوراً)</option>
+                  <option value="credit" data-i18n="payCredit">📝 آجل على الحساب (يثبت مديونية على العميل)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Card 2: Receiver & Destination -->
+            <div class="bg-slate-50/80 p-5 rounded-2xl border border-slate-200 space-y-4">
+              <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2 text-indigo-700">
+                <span class="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center text-xs">📍</span>
+                <span data-i18n="receiverSectionTitle">بيانات المستلم والوجهة الجغرافية</span>
+              </h3>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="receiverNameLabel">اسم المستلم الكامل *</label>
+                <input type="text" id="receiverName" required data-i18n-placeholder="receiverNamePlaceholder" placeholder="مثال: John Miller أو عمر فاروق" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="receiverPhoneLabel">رقم هاتف المستلم *</label>
+                <input type="tel" id="receiverPhone" required placeholder="+44 7911 123456" class="w-full text-xs font-semibold px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="zoneSelectLabel">منطقة وجهة خدمة الشحن *</label>
+                <select id="destinationZoneSelect" onchange="triggerRateCalculation()" class="w-full text-xs font-bold px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                  <!-- Dynamically loaded from backend -->
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="receiverAddressLabel">العنوان التفصيلي والرمز البريدي *</label>
+                <textarea id="receiverAddress" rows="2" required data-i18n-placeholder="receiverAddressPlaceholder" placeholder="المدينة، الشارع، المبنى، الرمز البريدي" class="w-full text-xs font-semibold px-3 py-2 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
+              </div>
+            </div>
+
+            <!-- Card 3: Weight, Dimensions & Pricing Engine -->
+            <div class="bg-indigo-50/60 p-5 rounded-2xl border border-indigo-200/80 space-y-4 flex flex-col justify-between">
+              <div>
+                <h3 class="font-bold text-sm text-indigo-950 flex items-center gap-2 mb-3">
+                  <span class="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs">⚖️</span>
+                  <span data-i18n="pricingSectionTitle">محرك الأوزان والشرائح اللحظي</span>
+                </h3>
+
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="actualWeightLabel">الوزن الفعلي (كجم) *</label>
+                  <input type="number" step="0.05" min="0.05" id="actualWeight" value="2.5" oninput="triggerRateCalculation()" class="w-full text-sm font-black px-3 py-2 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+
+                <div class="mt-3">
+                  <label class="block text-[11px] font-bold text-slate-600 mb-1" data-i18n="dimensionsLabel">الأبعاد (اختياري لحساب الوزن الحجمي سم)</label>
+                  <div class="grid grid-cols-3 gap-2">
+                    <input type="number" id="dimLength" data-i18n-placeholder="dimLength" placeholder="طول" oninput="triggerRateCalculation()" class="text-xs px-2 py-1.5 border border-slate-300 rounded-lg bg-white">
+                    <input type="number" id="dimWidth" data-i18n-placeholder="dimWidth" placeholder="عرض" oninput="triggerRateCalculation()" class="text-xs px-2 py-1.5 border border-slate-300 rounded-lg bg-white">
+                    <input type="number" id="dimHeight" data-i18n-placeholder="dimHeight" placeholder="ارتفاع" oninput="triggerRateCalculation()" class="text-xs px-2 py-1.5 border border-slate-300 rounded-lg bg-white">
+                  </div>
+                </div>
+
+                <!-- Instant Pricing Calculation Card -->
+                <div class="mt-4 p-3.5 bg-white rounded-xl border border-indigo-200 text-xs space-y-2 shadow-xs">
+                  <div class="flex justify-between text-slate-600">
+                    <span data-i18n="rateVolWeightLabel">الوزن الحجمي التقديري:</span>
+                    <span id="rateVolWeight" class="font-bold text-slate-800">0.00 كجم</span>
+                  </div>
+                  <div class="flex justify-between text-slate-700">
+                    <span data-i18n="rateChargeableWeightLabel">الوزن القابل للفوترة (المعتمد):</span>
+                    <span id="rateChargeableWeight" class="font-black text-indigo-700">2.50 كجم</span>
+                  </div>
+                  <div class="flex justify-between text-slate-600">
+                    <span data-i18n="rateTierNameLabel">الشريحة المطبقة:</span>
+                    <span id="rateTierName" class="font-bold text-slate-800 text-[11px] truncate max-w-[180px]">جاري الاحتساب...</span>
+                  </div>
+                  <div class="pt-2.5 border-t border-slate-100 flex justify-between items-center">
+                    <span class="font-bold text-slate-800" data-i18n="rateTotalSalesLabel">إجمالي قيمة المبيعات:</span>
+                    <span id="rateTotalSales" class="text-xl font-black text-blue-700">0.00 $</span>
+                  </div>
+                </div>
+              </div>
+
+              <button type="submit" id="saveOrderBtn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                <span>💾</span> <span data-i18n="saveOrderBtn">حفظ الطلب الأولي وتوليد القيد المالي</span>
+              </button>
+            </div>
+
+          </div>
+        </form>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- TAB 2: Dispatch to Final Carrier & Waybill -->
+      <!-- ============================================== -->
+      <div id="tab-dispatch" class="hidden p-6">
+        <div class="mb-5 pb-3 border-b border-slate-100 flex flex-wrap justify-between items-center gap-3">
+          <div>
+            <h2 class="text-lg font-black text-slate-800" data-i18n="dispatchHeading">محطة الترحيل للنهائي (Carrier Dispatch)</h2>
+            <p class="text-xs text-slate-500" data-i18n="dispatchSubheading">يتم استيراد الطلب الأولي مباشرة هنا، وإدخال <strong>رقم بوليصة المورد</strong> المسلمة منه، ليولد النظام فوراً قيد استحقاق للمورد ويحسب صافي ربح الشحنة.</p>
+          </div>
+        </div>
+
+        <!-- Pending Orders Table -->
+        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+          <table class="w-full rtl:text-right ltr:text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 font-bold text-slate-600">
+                <th class="py-3 px-4" data-i18n="colOrderNumber">رقم الطلب الأولي</th>
+                <th class="py-3 px-4" data-i18n="colSender">المرسل</th>
+                <th class="py-3 px-4" data-i18n="colReceiverZone">المستلم والوجهة</th>
+                <th class="py-3 px-4" data-i18n="colWeight">الوزن المفوتر</th>
+                <th class="py-3 px-4" data-i18n="colSalesAmount">مبلغ البيع المحصل</th>
+                <th class="py-3 px-4" data-i18n="colPaymentMethod">طريقة السداد</th>
+                <th class="py-3 px-4 text-center" data-i18n="colAction">إجراء الترحيل للنهائي</th>
+              </tr>
+            </thead>
+            <tbody id="pendingOrdersTableBody" class="divide-y divide-slate-100 font-medium">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Dispatch Input Form Modal / Inline Box -->
+        <div id="dispatchFormBox" class="hidden mt-6 p-6 bg-gradient-to-br from-amber-50 to-orange-50/60 border border-amber-300/80 rounded-2xl shadow-sm">
+          <div class="flex justify-between items-center mb-4 pb-2 border-b border-amber-200">
+            <h3 class="font-extrabold text-amber-950 text-sm flex items-center gap-2">
+              <span class="w-7 h-7 bg-amber-600 text-white rounded-lg flex items-center justify-center text-xs">🚚</span>
+              <span data-i18n="dispatchModalTitle">تسليم الشحنة للناقل وإدخال بوليصة المورد</span>
+            </h3>
+            <button onclick="closeDispatchForm()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">&times;</button>
+          </div>
+
+          <form onsubmit="submitFinalDispatch(event)" class="space-y-4">
+            <input type="hidden" id="dispatchInitialOrderId">
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="dispatchOrderLabel">الطلب الأولي المختار</label>
+                <input type="text" id="dispatchDisplayOrder" readonly class="w-full text-xs font-black bg-white px-3 py-2.5 border border-slate-300 rounded-xl text-indigo-700">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="dispatchCarrierLabel">الناقل / المورد الخارجي *</label>
+                <select id="dispatchCarrierSelect" required class="w-full text-xs font-bold px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                  <!-- Carrier options -->
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="dispatchWaybillLabel">رقم البوليصة الواردة من المورد (AWB) *</label>
+                <input type="text" id="dispatchSupplierWaybill" required placeholder="AWB-94827103" class="w-full text-xs font-black px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none uppercase">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="dispatchCostLabel">تكلفة الشحن المستحقة للمورد ($) *</label>
+                <input type="number" step="0.5" min="0.5" id="dispatchCarrierCost" required placeholder="0.00" class="w-full text-xs font-black px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none">
+              </div>
+            </div>
+
+            <div class="flex justify-between items-center pt-3 border-t border-amber-200/70">
+              <div class="text-xs text-amber-900 font-semibold" data-i18n="dispatchNote">
+                ⚠️ بمجرد التأكيد، سيتم قيد استحقاق مالي مباشر في حساب المورد وإقفال الطلب كشحنة نهائية.
+              </div>
+              <div class="flex gap-2">
+                <button type="button" onclick="closeDispatchForm()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold" data-i18n="cancelBtn">إلغاء</button>
+                <button type="submit" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold shadow transition" data-i18n="confirmDispatchBtn">✓ تأكيد الترحيل النهائي وتوليد القيد</button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+      </div>
+
+      <!-- ============================================== -->
+      <!-- TAB 3: All Orders Listing & Search -->
+      <!-- ============================================== -->
+      <div id="tab-orders" class="hidden p-6">
+        <div class="mb-5 pb-3 border-b border-slate-100 flex flex-wrap justify-between items-center gap-3">
+          <div>
+            <h2 class="text-lg font-black text-slate-800" data-i18n="allOrdersHeading">سجل الشحنات والبحث الشامل</h2>
+            <p class="text-xs text-slate-500" data-i18n="allOrdersSubheading">استعراض كافة الشحنات الأولية والمرحلة نهائياً مع بوالص الموردين وهوامش الأرباح.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" id="orderSearchInput" oninput="searchOrders()" data-i18n-placeholder="searchPlaceholder" placeholder="بحث برقم الطلب، البوليصة، العميل..." class="text-xs px-3.5 py-2 border border-slate-300 rounded-xl w-64 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <select id="orderStatusFilter" onchange="searchOrders()" class="text-xs font-bold px-3 py-2 border border-slate-300 rounded-xl bg-white">
+              <option value="" data-i18n="filterAll">كافة الحالات</option>
+              <option value="initial" data-i18n="filterPending">طلبات أولية معلقة</option>
+              <option value="final_dispatched" data-i18n="filterDispatched">مرحلة نهائياً</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+          <table class="w-full rtl:text-right ltr:text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 font-bold text-slate-600">
+                <th class="py-3 px-3" data-i18n="colOrderNumber">رقم الطلب الأولي</th>
+                <th class="py-3 px-3" data-i18n="colSender">المرسل</th>
+                <th class="py-3 px-3" data-i18n="colReceiverZone">المستلم والوجهة</th>
+                <th class="py-3 px-3" data-i18n="colWeight">الوزن</th>
+                <th class="py-3 px-3" data-i18n="colSales">المبيعات</th>
+                <th class="py-3 px-3" data-i18n="colCarrier">الناقل / المورد</th>
+                <th class="py-3 px-3" data-i18n="colWaybill">بوليصة المورد</th>
+                <th class="py-3 px-3" data-i18n="colCost">تكلفة المورد</th>
+                <th class="py-3 px-3" data-i18n="colProfit">صافي الربح</th>
+                <th class="py-3 px-3" data-i18n="colStatus">الحالة</th>
+              </tr>
+            </thead>
+            <tbody id="allOrdersTableBody" class="divide-y divide-slate-100 font-medium">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- TAB 4: Zones & Pricing Matrix -->
+      <!-- ============================================== -->
+      <div id="tab-pricing" class="hidden p-6">
+        <div class="mb-5 pb-3 border-b border-slate-100">
+          <h2 class="text-lg font-black text-slate-800" data-i18n="pricingHeading">مصفوفة تسعير الخدمات وشرائح الأوزان حسب الوجهات</h2>
+          <p class="text-xs text-slate-500" data-i18n="pricingSubheading">الشرائح المعتمدة برمجياً لحساب تكاليف وأسعار الشحن للعملاء والموردين.</p>
+        </div>
+
+        <div id="zonesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- TAB 5: General Ledger & Accounting -->
+      <!-- ============================================== -->
+      <div id="tab-ledger" class="hidden p-6">
+        <div class="mb-5 pb-3 border-b border-slate-100">
+          <h2 class="text-lg font-black text-slate-800" data-i18n="ledgerHeading">سجل القيود المحاسبية الآلية المزدوجة (General Ledger)</h2>
+          <p class="text-xs text-slate-500" data-i18n="ledgerSubheading">القيود المالية التي تولدت آلياً لحظة حفظ الطلب الأولي ولحظة ترحيل بوليصة المورد.</p>
+        </div>
+
+        <div class="space-y-4" id="ledgerJournalsContainer">
+          <!-- Dynamically populated journals -->
+        </div>
+      </div>
+
+    </div>
+  </main>
+  </div> <!-- End of appDashboard -->
+
+  <script src="app.js"></script>
+</body>
+</html>
