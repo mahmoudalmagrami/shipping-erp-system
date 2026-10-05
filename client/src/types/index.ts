@@ -1,8 +1,9 @@
 export interface User {
-  id: string;
+  id: number | string;
   username: string;
-  role: 'admin' | 'cashier' | 'accountant' | 'manager';
-  name: string;
+  role: 'admin' | 'cashier' | 'accountant' | 'warehouse';
+  fullName?: string;
+  name?: string;
 }
 
 export interface Order {

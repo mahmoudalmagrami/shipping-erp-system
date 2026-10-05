@@ -9,6 +9,8 @@ import { fileURLToPath } from 'url';
 import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { errorHandler } from './api/middlewares/errorHandler.js';
+import { runMigrations } from './db/migrate.js';
+import { seed } from './db/seed.js';
 import websocketPlugin from './api/plugins/websocket.js';
 import authRoutes from './api/routes/auth.js';
 import ordersRoutes from './api/routes/orders.js';
@@ -22,8 +24,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export async function buildServer() {
+  // 1. تهيئة قاعدة البيانات والبيانات الأولية
+  try {
+    await runMigrations();
+    await seed();
+  } catch (err) {
+    logger.error({ err }, 'Failed to initialize database');
+  }
+
   const fastify = Fastify({
-    logger,
+    loggerInstance: logger,
   });
 
   await fastify.register(cors, {
@@ -91,15 +101,20 @@ export async function buildServer() {
 const start = async () => {
   try {
     const server = await buildServer();
-    const address = await server.listen({ port: env.PORT || 3000, host: '0.0.0.0' });
-    logger.info(`Server listening on ${address}`);
+    const port = env.PORT || 3000;
+    const address = await server.listen({ port, host: '0.0.0.0' });
+    console.log(`\n======================================================`);
+    console.log(`🚀 نظام إدارة الشحن والترحيل المالي يعمل بنجاح!`);
+    console.log(`🌐 الواجهة الحديثة (React + Vite): ${address}`);
+    console.log(`📡 واجهة الـ API متاحة على: ${address}/api`);
+    console.log(`⚡ محرك قاعدة البيانات: PostgreSQL Engine (Type-Safe Drizzle ORM)`);
+    console.log(`======================================================\n`);
   } catch (err) {
     logger.error(err);
     process.exit(1);
   }
 };
 
-// تشغيل الخادم إذا تم استدعاء الملف مباشرة
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   start();
 }

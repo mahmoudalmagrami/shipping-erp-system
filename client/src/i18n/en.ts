@@ -104,10 +104,10 @@ export default {
       password: "Password"
     },
     roles: {
-      admin: "Admin",
+      admin: "System Admin",
       cashier: "Cashier",
-      accountant: "Accountant",
-      manager: "Manager"
+      warehouse: "Warehouse & Dispatch",
+      accountant: "Accountant"
     }
   }
 };

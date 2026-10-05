@@ -1,4 +1,4 @@
-import { migrate } from 'drizzle-orm/postgres-js/migrator';
+import { migrate } from 'drizzle-orm/pglite/migrator';
 import { db, queryClient } from './index.js';
 import { logger } from '../config/logger.js';
 import path from 'path';
@@ -7,17 +7,19 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-async function runMigrations() {
+export async function runMigrations() {
   try {
-    logger.info('Starting migrations...');
+    logger.info('Starting database migrations...');
     await migrate(db, { migrationsFolder: path.join(__dirname, 'migrations') });
-    logger.info('Migrations completed successfully.');
+    logger.info('Database migrations completed successfully.');
   } catch (error) {
     logger.error({ error }, 'Migration failed');
-    process.exit(1);
-  } finally {
-    await queryClient.end();
+    throw error;
   }
 }
 
-runMigrations();
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  runMigrations()
+    .then(() => queryClient.close())
+    .catch(() => process.exit(1));
+}

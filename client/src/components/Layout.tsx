@@ -11,7 +11,8 @@ import {
   Calculator, 
   BookOpen, 
   Menu, 
-  LogOut 
+  LogOut,
+  UserCheck 
 } from 'lucide-react';
 import { useWebSocket } from '../hooks/useWebSocket';
 
@@ -25,34 +26,102 @@ export const Layout: React.FC = () => {
 
   const toggleLang = () => setLang(currentLang === 'ar' ? 'en' : 'ar');
 
-  const navItems = [
-    { to: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
-    { to: '/booking', icon: PackagePlus, label: t('nav.booking') },
-    { to: '/dispatch', icon: Send, label: t('nav.dispatch') },
-    { to: '/orders', icon: ListOrdered, label: t('nav.orders') },
-    { to: '/pricing', icon: Calculator, label: t('nav.pricing') },
-    { to: '/ledger', icon: BookOpen, label: t('nav.ledger') },
+  const role = user?.role || 'admin';
+
+  // تحديد القوائم المتاحة لكل دور بدقة
+  const allNavItems = [
+    { 
+      to: '/dashboard', 
+      icon: LayoutDashboard, 
+      label: t('nav.dashboard'),
+      roles: ['admin', 'accountant'] 
+    },
+    { 
+      to: '/booking', 
+      icon: PackagePlus, 
+      label: t('nav.booking'),
+      roles: ['admin', 'cashier'] 
+    },
+    { 
+      to: '/dispatch', 
+      icon: Send, 
+      label: t('nav.dispatch'),
+      roles: ['admin', 'warehouse'] 
+    },
+    { 
+      to: '/orders', 
+      icon: ListOrdered, 
+      label: t('nav.orders'),
+      roles: ['admin', 'cashier', 'warehouse', 'accountant'] 
+    },
+    { 
+      to: '/pricing', 
+      icon: Calculator, 
+      label: t('nav.pricing'),
+      roles: ['admin', 'cashier'] 
+    },
+    { 
+      to: '/ledger', 
+      icon: BookOpen, 
+      label: t('nav.ledger'),
+      roles: ['admin', 'accountant'] 
+    },
   ];
 
+  const navItems = allNavItems.filter(item => item.roles.includes(role));
+
+  const roleBadgeColor = {
+    admin: 'bg-purple-100 text-purple-800 border-purple-200',
+    cashier: 'bg-amber-100 text-amber-800 border-amber-200',
+    warehouse: 'bg-blue-100 text-blue-800 border-blue-200',
+    accountant: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  }[role] || 'bg-gray-100 text-gray-800 border-gray-200';
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white shadow-sm z-20 relative">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-cairo">
+      <header className="bg-white border-b border-slate-200 z-20 sticky top-0 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center">
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 md:hidden">
-              <Menu className="w-6 h-6 text-gray-600" />
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 md:hidden text-slate-600 hover:bg-slate-100 rounded-lg">
+              <Menu className="w-6 h-6" />
             </button>
-            <h1 className="text-xl font-bold text-gray-900 mx-2">{t('app.title')}</h1>
-            <span className="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">{t('app.version')}</span>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-slate-900">{t('app.title')}</h1>
+              <span className="px-2 py-0.5 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded-md">
+                v2.0 Enterprise
+              </span>
+            </div>
           </div>
-          <div className="flex items-center space-x-4 space-x-reverse">
-            <button onClick={toggleLang} className="text-sm font-medium text-gray-600 hover:text-gray-900">
+
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={toggleLang} 
+              className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
+            >
               {currentLang === 'ar' ? 'English' : 'عربي'}
             </button>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600 hidden sm:block">{user?.name}</span>
-              <button onClick={logout} className="p-2 text-red-600 hover:bg-red-50 rounded-full" title={t('common.logout')}>
-                <LogOut className="w-5 h-5" />
+
+            <div className="flex items-center gap-3 pl-2 pr-2 py-1 bg-slate-50 rounded-xl border border-slate-200/80">
+              <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
+                <UserCheck className="w-4 h-4" />
+              </div>
+              <div className="hidden sm:flex flex-col text-right">
+                <span className="text-xs font-bold text-slate-900 leading-tight">
+                  {user?.fullName || user?.name || user?.username}
+                </span>
+                <span className="text-[10px] text-slate-500 font-medium">
+                  {user?.username}
+                </span>
+              </div>
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${roleBadgeColor}`}>
+                {t(`roles.${role}`)}
+              </span>
+              <button 
+                onClick={logout} 
+                className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors ml-1" 
+                title={t('common.logout')}
+              >
+                <LogOut className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -60,28 +129,38 @@ export const Layout: React.FC = () => {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <aside className={`fixed inset-y-0 ${currentLang === 'ar' ? 'right-0' : 'left-0'} z-10 w-64 bg-white shadow-lg transform ${sidebarOpen ? 'translate-x-0' : (currentLang === 'ar' ? 'translate-x-full' : '-translate-x-full')} md:relative md:translate-x-0 transition-transform duration-200 ease-in-out`}>
-          <nav className="p-4 space-y-1">
+        <aside className={`fixed inset-y-0 ${currentLang === 'ar' ? 'right-0' : 'left-0'} z-10 w-64 bg-white border-l border-r border-slate-200 transform ${sidebarOpen ? 'translate-x-0' : (currentLang === 'ar' ? 'translate-x-full' : '-translate-x-full')} md:relative md:translate-x-0 transition-transform duration-200 ease-in-out flex flex-col justify-between`}>
+          <div className="p-4 space-y-1.5">
+            <div className="px-3 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              القوائم المصرح بها ({t(`roles.${role}`)})
+            </div>
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
+                onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-                    isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'
+                  `flex items-center px-3.5 py-2.5 text-sm font-semibold rounded-xl transition-all ${
+                    isActive 
+                      ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20' 
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                   }`
                 }
               >
-                <item.icon className="w-5 h-5 mx-3" />
-                {item.label}
+                <item.icon className="w-4 h-4 mx-2.5" />
+                <span>{item.label}</span>
               </NavLink>
             ))}
-          </nav>
+          </div>
+
+          <div className="p-4 border-t border-slate-100 text-[11px] text-slate-400 text-center">
+            نظام الشحن والترحيل المالي المتكامل
+          </div>
         </aside>
 
         {sidebarOpen && (
           <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-0 md:hidden" 
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-0 md:hidden" 
             onClick={() => setSidebarOpen(false)}
           />
         )}

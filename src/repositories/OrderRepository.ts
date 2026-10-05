@@ -25,7 +25,7 @@ export class OrderRepository {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    return txOrDb
+    const rows = await txOrDb
       .select({
         order: initialOrders,
         zone: destinationZones,
@@ -38,6 +38,19 @@ export class OrderRepository {
       .leftJoin(carrierSuppliers, eq(finalShipments.carrierId, carrierSuppliers.id))
       .where(whereClause)
       .orderBy(desc(initialOrders.id));
+
+    return rows.map((r: any) => ({
+      ...r.order,
+      amount: Number(r.order.totalSalesAmount || 0),
+      zoneName: r.zone?.nameAr,
+      zoneNameEn: r.zone?.nameEn,
+      carrierName: r.carrier?.name,
+      waybillNumber: r.shipment?.supplierWaybillNumber,
+      supplierWaybillNumber: r.shipment?.supplierWaybillNumber,
+      carrierCost: r.shipment ? Number(r.shipment.carrierCost) : undefined,
+      grossProfit: r.shipment ? Number(r.shipment.grossProfit) : undefined,
+      dispatchedAt: r.shipment?.dispatchedAt,
+    }));
   }
 
   static async getById(id: number, txOrDb: any = db): Promise<InitialOrder | undefined> {
@@ -45,8 +58,23 @@ export class OrderRepository {
     return result[0];
   }
 
-  static async getPendingDispatch(txOrDb: any = db): Promise<InitialOrder[]> {
-    return txOrDb.select().from(initialOrders).where(eq(initialOrders.status, 'initial')).orderBy(desc(initialOrders.id));
+  static async getPendingDispatch(txOrDb: any = db): Promise<any[]> {
+    const rows = await txOrDb
+      .select({
+        order: initialOrders,
+        zone: destinationZones,
+      })
+      .from(initialOrders)
+      .leftJoin(destinationZones, eq(initialOrders.zoneId, destinationZones.id))
+      .where(eq(initialOrders.status, 'initial'))
+      .orderBy(desc(initialOrders.id));
+
+    return rows.map((r: any) => ({
+      ...r.order,
+      amount: Number(r.order.totalSalesAmount || 0),
+      zoneName: r.zone?.nameAr,
+      zoneNameEn: r.zone?.nameEn,
+    }));
   }
 
   static async create(data: NewInitialOrder, txOrDb: any = db): Promise<InitialOrder> {

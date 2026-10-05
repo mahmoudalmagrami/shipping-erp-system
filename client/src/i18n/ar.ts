@@ -104,10 +104,10 @@ export default {
       password: "كلمة المرور"
     },
     roles: {
-      admin: "مدير نظام",
-      cashier: "كاشير",
-      accountant: "محاسب",
-      manager: "مدير"
+      admin: "المدير العام",
+      cashier: "كاشير الاستقبال",
+      warehouse: "مسؤول المستودع والترحيل",
+      accountant: "المحاسب المالي"
     }
   }
 };
