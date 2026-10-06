@@ -19,6 +19,7 @@ import pricingRoutes from './api/routes/pricing.js';
 import accountingRoutes from './api/routes/accounting.js';
 import carriersRoutes from './api/routes/carriers.js';
 import customersRoutes from './api/routes/customers.js';
+import analyticsRoutes from './api/routes/analytics.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,6 +78,7 @@ export async function buildServer() {
   fastify.register(accountingRoutes, { prefix: '/api/accounting' });
   fastify.register(carriersRoutes, { prefix: '/api/carriers' });
   fastify.register(customersRoutes, { prefix: '/api/customers' });
+  fastify.register(analyticsRoutes, { prefix: '/api/analytics' });
 
   // Serve Single Page Application (React + Vite)
   const clientDist = path.resolve(__dirname, '../client/dist');
@@ -84,12 +86,17 @@ export async function buildServer() {
     await fastify.register(fastifyStatic, {
       root: clientDist,
       prefix: '/',
-      wildcard: false,
+      wildcard: true,
     });
 
     fastify.setNotFoundHandler(async (request, reply) => {
-      if (request.raw.url && request.raw.url.startsWith('/api')) {
+      const url = request.raw.url || '';
+      if (url.startsWith('/api')) {
         return reply.status(404).send({ success: false, message: 'المسار غير موجود' });
+      }
+      const pathname = url.split('?')[0] || '';
+      if (/\.[a-zA-Z0-9]+$/.test(pathname)) {
+        return reply.status(404).send({ success: false, message: 'الملف غير موجود' });
       }
       return reply.sendFile('index.html');
     });

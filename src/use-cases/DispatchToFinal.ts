@@ -6,10 +6,10 @@ import { AccountingEngine } from '../domain/services/AccountingEngine.js';
 import { NotFoundError, BusinessRuleError } from '../domain/errors/index.js';
 
 const schema = z.object({
-  initialOrderId: z.number().int().positive('معرف الطلب إلزامي'),
-  carrierId: z.number().int().positive('يجب اختيار الناقل / المورد'),
+  initialOrderId: z.coerce.number().int().positive('معرف الطلب إلزامي'),
+  carrierId: z.coerce.number().int().positive('يجب اختيار الناقل / المورد'),
   supplierWaybillNumber: z.string().min(3, 'رقم بوليصة المورد إلزامي (3 أحرف على الأقل)'),
-  carrierCost: z.number().positive('تكلفة المورد يجب أن تكون أكبر من الصفر'),
+  carrierCost: z.coerce.number().positive('تكلفة المورد يجب أن تكون أكبر من الصفر'),
   notes: z.string().optional()
 });
 

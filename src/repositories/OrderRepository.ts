@@ -45,6 +45,7 @@ export class OrderRepository {
       zoneName: r.zone?.nameAr,
       zoneNameEn: r.zone?.nameEn,
       carrierName: r.carrier?.name,
+      carrierId: r.shipment?.carrierId,
       waybillNumber: r.shipment?.supplierWaybillNumber,
       supplierWaybillNumber: r.shipment?.supplierWaybillNumber,
       carrierCost: r.shipment ? Number(r.shipment.carrierCost) : undefined,

@@ -195,4 +195,90 @@ export class AccountingEngine {
       lines,
     }, tx);
   }
+
+  static async processCustomerReceiptVoucher(params: {
+    customerId: number;
+    amount: number;
+    paymentMethod: 'cash' | 'bank';
+    notes?: string;
+  }, tx: any = db) {
+    if (params.amount <= 0) {
+      throw new AccountingError('مبلغ سند القبض يجب أن يكون أكبر من الصفر');
+    }
+    const customer = await CustomerRepository.getById(params.customerId, tx);
+    if (!customer) {
+      throw new AccountingError('العميل المحدد غير موجود');
+    }
+
+    const memo = `سند قبض من العميل: [${customer.fullName}]${params.notes ? ` - ${params.notes}` : ''}`.trim();
+    const vaultCode = params.paymentMethod === 'bank' ? '1020' : '1010';
+
+    const lines: JournalLineInput[] = [
+      { accountCode: vaultCode, debit: params.amount, credit: 0, memo },
+      { accountCode: '1100', debit: 0, credit: params.amount, memo },
+    ];
+
+    await CustomerRepository.updateBalance(params.customerId, -params.amount, tx);
+
+    const vault = await AccountRepository.getByCode(vaultCode, tx);
+    const balanceAfter = (Number(vault?.currentBalance || 0) + params.amount).toFixed(2);
+
+    await JournalRepository.createCashMovement({
+      accountCode: vaultCode,
+      movementType: 'inflow',
+      amount: params.amount.toFixed(2),
+      balanceAfter,
+      notes: memo,
+    }, tx);
+
+    return this.postBalancedJournalEntry({
+      referenceType: 'receipt_voucher',
+      referenceId: params.customerId,
+      description: memo,
+      lines,
+    }, tx);
+  }
+
+  static async processCarrierPaymentVoucher(params: {
+    carrierId: number;
+    amount: number;
+    paymentMethod: 'cash' | 'bank';
+    notes?: string;
+  }, tx: any = db) {
+    if (params.amount <= 0) {
+      throw new AccountingError('مبلغ سند الصرف يجب أن يكون أكبر من الصفر');
+    }
+    const carrier = await CarrierRepository.getById(params.carrierId, tx);
+    if (!carrier) {
+      throw new AccountingError('الناقل المحدد غير موجود');
+    }
+
+    const memo = `سند صرف لشركة الشحن / الناقل: [${carrier.name}]${params.notes ? ` - ${params.notes}` : ''}`.trim();
+    const vaultCode = params.paymentMethod === 'bank' ? '1020' : '1010';
+
+    const lines: JournalLineInput[] = [
+      { accountCode: '2100', debit: params.amount, credit: 0, memo },
+      { accountCode: vaultCode, debit: 0, credit: params.amount, memo },
+    ];
+
+    await CarrierRepository.updateBalance(params.carrierId, -params.amount, tx);
+
+    const vault = await AccountRepository.getByCode(vaultCode, tx);
+    const balanceAfter = (Number(vault?.currentBalance || 0) - params.amount).toFixed(2);
+
+    await JournalRepository.createCashMovement({
+      accountCode: vaultCode,
+      movementType: 'outflow',
+      amount: params.amount.toFixed(2),
+      balanceAfter,
+      notes: memo,
+    }, tx);
+
+    return this.postBalancedJournalEntry({
+      referenceType: 'payment_voucher',
+      referenceId: params.carrierId,
+      description: memo,
+      lines,
+    }, tx);
+  }
 }

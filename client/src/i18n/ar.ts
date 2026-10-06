@@ -93,6 +93,7 @@ export default {
       recentCash: "الحركات النقدية الأخيرة"
     },
     common: {
+      select: "-- اختر من القائمة --",
       save: "حفظ",
       cancel: "إلغاء",
       search: "بحث",

@@ -14,46 +14,71 @@ export interface Order {
   receiverName: string;
   receiverPhone: string;
   receiverAddress: string;
-  zoneId: string;
+  zoneId: string | number;
+  zoneName?: string;
+  carrierName?: string;
   actualWeight: number;
+  volumetricWeight?: number;
+  chargeableWeight?: number;
   length?: number;
   width?: number;
   height?: number;
+  lengthCm?: number;
+  widthCm?: number;
+  heightCm?: number;
   paymentType: 'cash' | 'bank' | 'credit';
-  customerId?: string;
+  customerId?: string | number;
   notes?: string;
-  status: 'initial' | 'dispatched' | 'cancelled';
+  status: 'initial' | 'final_dispatched' | 'dispatched' | 'cancelled';
   amount: number;
+  totalSalesAmount?: number | string;
   waybillNumber?: string;
+  supplierWaybillNumber?: string;
+  carrierCost?: number;
+  grossProfit?: number;
+  dispatchedAt?: string;
   createdAt: string;
 }
 
 export interface Tier {
-  id: string;
-  name: string;
-  minWeight: number;
-  maxWeight: number;
-  basePrice: number;
-  extraKgPrice: number;
-  estCost: number;
+  id: string | number;
+  name?: string;
+  tierName?: string;
+  tierNameEn?: string;
+  minWeight?: number;
+  maxWeight?: number;
+  basePrice?: number;
+  extraKgPrice?: number;
+  estCost?: number;
 }
 
 export interface Zone {
-  id: string;
-  name: string;
-  tiers: Tier[];
+  id: string | number;
+  zoneCode?: string;
+  name?: string;
+  nameAr?: string;
+  nameEn?: string;
+  countriesList?: string;
+  description?: string;
+  tiers?: Tier[];
 }
 
 export interface Carrier {
-  id: string;
+  id: string | number;
   name: string;
+  nameEn?: string;
+  phone?: string;
+  carrierCode?: string;
+  currentBalance?: number | string;
 }
 
 export interface Customer {
-  id: string;
+  id: string | number;
   fullName: string;
   phone: string;
   address?: string;
+  customerCode?: string;
+  currentBalance?: number | string;
 }
 
 export interface Account {
@@ -116,4 +141,60 @@ export interface ApiResponse<T> {
   success: boolean;
   message?: string;
   data?: T;
+}
+
+export interface DailyTrendPoint {
+  date: string;
+  displayDate: string;
+  sales: number;
+  cost: number;
+  profit: number;
+  orderCount: number;
+}
+
+export interface CarrierShareItem {
+  carrierId: number;
+  carrierName: string;
+  carrierCode: string;
+  shipmentsCount: number;
+  percentage: number;
+  totalCost: number;
+  totalSales: number;
+  grossProfit: number;
+}
+
+export interface DashboardAnalytics {
+  kpi: {
+    totalSales: number;
+    totalCost: number;
+    grossProfit: number;
+    profitMarginPct: number;
+    cashBox: number;
+    bankExchange: number;
+    liquidTotal: number;
+    accountsReceivable: number;
+    accountsPayableCarriers: number;
+    workingCapitalCoveragePct: number;
+  };
+  orderStatusCounts: {
+    initial: number;
+    finalDispatched: number;
+    cancelled: number;
+    total: number;
+  };
+  liquidityDistribution: {
+    cashBox: number;
+    cashPct: number;
+    bankExchange: number;
+    bankPct: number;
+    total: number;
+  };
+  debtRatio: {
+    receivables: number;
+    payables: number;
+    netBalance: number;
+    coveragePct: number;
+  };
+  dailyTrend: DailyTrendPoint[];
+  carrierShare: CarrierShareItem[];
 }

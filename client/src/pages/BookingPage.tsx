@@ -31,13 +31,13 @@ export const BookingPage: React.FC = () => {
   useEffect(() => {
     if (form.zoneId && form.actualWeight) {
       calculateRate({
-        zoneId: form.zoneId,
+        zoneId: Number(form.zoneId),
         actualWeight: Number(form.actualWeight),
-        length: form.length ? Number(form.length) : undefined,
-        width: form.width ? Number(form.width) : undefined,
-        height: form.height ? Number(form.height) : undefined,
+        lengthCm: form.length ? Number(form.length) : undefined,
+        widthCm: form.width ? Number(form.width) : undefined,
+        heightCm: form.height ? Number(form.height) : undefined,
       }).then(res => {
-        if (res.success && res.data) setPreviewPrice(res.data.estCost);
+        if (res.success && res.data) setPreviewPrice(res.data.totalSalesPrice ?? res.data.estCost);
       }).catch(() => setPreviewPrice(null));
     } else {
       setPreviewPrice(null);
@@ -50,11 +50,12 @@ export const BookingPage: React.FC = () => {
     try {
       const data = {
         ...form,
+        zoneId: Number(form.zoneId),
         actualWeight: Number(form.actualWeight),
-        length: form.length ? Number(form.length) : undefined,
-        width: form.width ? Number(form.width) : undefined,
-        height: form.height ? Number(form.height) : undefined,
-        customerId: form.customerId || undefined
+        lengthCm: form.length ? Number(form.length) : undefined,
+        widthCm: form.width ? Number(form.width) : undefined,
+        heightCm: form.height ? Number(form.height) : undefined,
+        customerId: form.customerId ? Number(form.customerId) : undefined
       };
       const res = await createOrder(data);
       if (res.success) {
@@ -122,10 +123,14 @@ export const BookingPage: React.FC = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{t('booking.zone')}</label>
-            <select required className="w-full rounded-md border-gray-300 shadow-sm p-2 border"
+            <select required className="w-full rounded-md border-gray-300 shadow-sm p-2 border bg-white focus:ring-2 focus:ring-blue-500"
               value={form.zoneId} onChange={e => setForm({...form, zoneId: e.target.value})}>
               <option value="">{t('common.select')}</option>
-              {zones?.data?.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
+              {zones?.data?.map(z => (
+                <option key={z.id} value={z.id}>
+                  {z.nameAr || z.name || z.zoneCode} {z.countriesList ? `(${z.countriesList})` : ''}
+                </option>
+              ))}
             </select>
           </div>
           <div>
@@ -180,7 +185,7 @@ export const BookingPage: React.FC = () => {
         {previewPrice !== null && (
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex justify-between items-center">
             <span className="font-semibold text-blue-900">{t('booking.preview')}</span>
-            <span className="text-xl font-bold text-blue-700">{previewPrice} ج.م</span>
+            <span className="text-xl font-bold text-blue-700">{previewPrice} ر.س</span>
           </div>
         )}
 

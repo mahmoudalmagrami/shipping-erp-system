@@ -10,18 +10,18 @@ import { NotFoundError, BusinessRuleError } from '../domain/errors/index.js';
 import type { PaymentType } from '../domain/types/index.js';
 
 const schema = z.object({
-  customerId: z.number().optional().nullable(),
+  customerId: z.coerce.number().optional().nullable(),
   senderName: z.string().min(2, 'اسم المرسل إلزامي'),
   senderPhone: z.string().min(6, 'رقم هاتف المرسل إلزامي'),
   receiverName: z.string().min(2, 'اسم المستلم إلزامي'),
   receiverPhone: z.string().min(6, 'رقم هاتف المستلم إلزامي'),
   receiverAddress: z.string().min(3, 'عنوان المستلم إلزامي'),
-  zoneId: z.number().int().positive('يجب اختيار وجهة شحن صالحة'),
+  zoneId: z.coerce.number().int().positive('يجب اختيار وجهة شحن صالحة'),
   paymentType: z.enum(['cash', 'credit', 'bank']),
-  actualWeight: z.number().positive('الوزن الفعلي يجب أن يكون أكبر من الصفر'),
-  lengthCm: z.number().optional().default(0),
-  widthCm: z.number().optional().default(0),
-  heightCm: z.number().optional().default(0),
+  actualWeight: z.coerce.number().positive('الوزن الفعلي يجب أن يكون أكبر من الصفر'),
+  lengthCm: z.coerce.number().optional().default(0),
+  widthCm: z.coerce.number().optional().default(0),
+  heightCm: z.coerce.number().optional().default(0),
   notes: z.string().optional()
 }).refine(data => {
   if (data.paymentType === 'credit') {
@@ -35,7 +35,17 @@ const schema = z.object({
 
 export class CreateInitialOrder {
   static async execute(input: unknown) {
-    const data = schema.parse(input);
+    const raw = (input && typeof input === 'object') ? input as any : {};
+    const normalizedInput = {
+      ...raw,
+      customerId: raw.customerId ? Number(raw.customerId) : undefined,
+      zoneId: Number(raw.zoneId),
+      actualWeight: Number(raw.actualWeight),
+      lengthCm: Number(raw.lengthCm ?? raw.length ?? 0),
+      widthCm: Number(raw.widthCm ?? raw.width ?? 0),
+      heightCm: Number(raw.heightCm ?? raw.height ?? 0),
+    };
+    const data = schema.parse(normalizedInput);
     
     if (data.customerId) {
       const customer = await CustomerRepository.getById(data.customerId);

@@ -93,6 +93,7 @@ export default {
       recentCash: "Recent Cash Movements"
     },
     common: {
+      select: "-- Select from list --",
       save: "Save",
       cancel: "Cancel",
       search: "Search",

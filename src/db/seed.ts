@@ -42,26 +42,31 @@ export async function seed() {
     const zones = await db.select().from(destinationZones);
 
     // 3. Pricing Matrix (مصفوفة الشرائح والأسعار)
-    const tiersDefinition = [
-      { name: 'شريحة الطرود الخفيفة (0 - 1 كجم)', nameEn: 'Light (0 - 1 kg)', min: '0', max: '1.000', base: '25.00', extra: '0.00', cost: '15.00' },
-      { name: 'شريحة الطرود المتوسطة (1.001 - 5 كجم)', nameEn: 'Medium (1.001 - 5 kg)', min: '1.001', max: '5.000', base: '45.00', extra: '0.00', cost: '28.00' },
-      { name: 'شريحة الطرود الكبيرة (5.001 - 10 كجم)', nameEn: 'Large (5.001 - 10 kg)', min: '5.001', max: '10.000', base: '75.00', extra: '0.00', cost: '45.00' },
-      { name: 'شريحة الشحن الثقيل (أكثر من 10 كجم)', nameEn: 'Heavy (10+ kg)', min: '10.001', max: '999.000', base: '75.00', extra: '5.00', cost: '3.50' },
-    ];
+    await queryClient.query('DELETE FROM pricing_matrix WHERE id NOT IN (SELECT MIN(id) FROM pricing_matrix GROUP BY zone_id, tier_name)');
 
-    for (const zone of zones) {
-      for (const t of tiersDefinition) {
-        await db.insert(pricingMatrix).values({
-          zoneId: zone.id,
-          tierName: t.name,
-          tierNameEn: t.nameEn,
-          weightMinKg: t.min,
-          weightMaxKg: t.max,
-          baseSellingPrice: t.base,
-          extraKgPrice: t.extra,
-          estimatedCost: t.cost,
-          isActive: true,
-        }).onConflictDoNothing();
+    const existingTiers = await db.select().from(pricingMatrix);
+    if (existingTiers.length === 0) {
+      const tiersDefinition = [
+        { name: 'شريحة الطرود الخفيفة (0 - 1 كجم)', nameEn: 'Light (0 - 1 kg)', min: '0', max: '1.000', base: '25.00', extra: '0.00', cost: '15.00' },
+        { name: 'شريحة الطرود المتوسطة (1.001 - 5 كجم)', nameEn: 'Medium (1.001 - 5 kg)', min: '1.001', max: '5.000', base: '45.00', extra: '0.00', cost: '28.00' },
+        { name: 'شريحة الطرود الكبيرة (5.001 - 10 كجم)', nameEn: 'Large (5.001 - 10 kg)', min: '5.001', max: '10.000', base: '75.00', extra: '0.00', cost: '45.00' },
+        { name: 'شريحة الشحن الثقيل (أكثر من 10 كجم)', nameEn: 'Heavy (10+ kg)', min: '10.001', max: '999.000', base: '75.00', extra: '5.00', cost: '3.50' },
+      ];
+
+      for (const zone of zones) {
+        for (const t of tiersDefinition) {
+          await db.insert(pricingMatrix).values({
+            zoneId: zone.id,
+            tierName: t.name,
+            tierNameEn: t.nameEn,
+            weightMinKg: t.min,
+            weightMaxKg: t.max,
+            baseSellingPrice: t.base,
+            extraKgPrice: t.extra,
+            estimatedCost: t.cost,
+            isActive: true,
+          }).onConflictDoNothing();
+        }
       }
     }
 
