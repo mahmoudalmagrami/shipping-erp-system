@@ -12,6 +12,10 @@ import { DispatchPage } from './pages/DispatchPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { PricingPage } from './pages/PricingPage';
 import { LedgerPage } from './pages/LedgerPage';
+import { CustomersPage } from './pages/CustomersPage';
+import { CarriersPage } from './pages/CarriersPage';
+import { UsersPage } from './pages/UsersPage';
+import { ReportsPage } from './pages/ReportsPage';
 
 const RootRedirect: React.FC = () => {
   const user = useAuthStore(s => s.user);
@@ -56,6 +60,16 @@ const App: React.FC = () => {
             {/* الطلبات: متاح للجميع */}
             <Route path="orders" element={<OrdersPage />} />
 
+            {/* العملاء: للإدارة والكاشير والمحاسب */}
+            <Route element={<ProtectedRoute allowedRoles={['admin', 'cashier', 'accountant']} />}>
+              <Route path="customers" element={<CustomersPage />} />
+            </Route>
+
+            {/* الناقلون: للإدارة والمستودع والمحاسب */}
+            <Route element={<ProtectedRoute allowedRoles={['admin', 'warehouse', 'accountant']} />}>
+              <Route path="carriers" element={<CarriersPage />} />
+            </Route>
+
             {/* التسعير: للإدارة والكاشير */}
             <Route element={<ProtectedRoute allowedRoles={['admin', 'cashier']} />}>
               <Route path="pricing" element={<PricingPage />} />
@@ -64,6 +78,16 @@ const App: React.FC = () => {
             {/* دفتر الأستاذ: للإدارة والمحاسب */}
             <Route element={<ProtectedRoute allowedRoles={['admin', 'accountant']} />}>
               <Route path="ledger" element={<LedgerPage />} />
+            </Route>
+
+            {/* التقارير المالية: للإدارة والمحاسب */}
+            <Route element={<ProtectedRoute allowedRoles={['admin', 'accountant']} />}>
+              <Route path="reports" element={<ReportsPage />} />
+            </Route>
+
+            {/* إدارة المستخدمين: للإدارة فقط */}
+            <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+              <Route path="users" element={<UsersPage />} />
             </Route>
           </Route>
         </Route>

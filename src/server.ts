@@ -20,6 +20,8 @@ import accountingRoutes from './api/routes/accounting.js';
 import carriersRoutes from './api/routes/carriers.js';
 import customersRoutes from './api/routes/customers.js';
 import analyticsRoutes from './api/routes/analytics.js';
+import usersRoutes from './api/routes/users.js';
+import reportsRoutes from './api/routes/reports.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,12 +39,32 @@ export async function buildServer() {
     loggerInstance: logger,
   });
 
+  const allowedOrigins = process.env.ALLOWED_ORIGINS 
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+    : ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://127.0.0.1:3000'];
+
   await fastify.register(cors, {
-    origin: '*',
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+        cb(null, true);
+        return;
+      }
+      cb(new Error('Not allowed by CORS'), false);
+    },
+    credentials: true,
   });
 
   await fastify.register(helmet, {
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:"],
+        connectSrc: ["'self'", "ws:", "wss:"],
+      },
+    },
   });
 
   await fastify.register(rateLimit, {
@@ -79,6 +101,8 @@ export async function buildServer() {
   fastify.register(carriersRoutes, { prefix: '/api/carriers' });
   fastify.register(customersRoutes, { prefix: '/api/customers' });
   fastify.register(analyticsRoutes, { prefix: '/api/analytics' });
+  fastify.register(usersRoutes, { prefix: '/api/users' });
+  fastify.register(reportsRoutes, { prefix: '/api/reports' });
 
   // Serve Single Page Application (React + Vite)
   const clientDist = path.resolve(__dirname, '../client/dist');

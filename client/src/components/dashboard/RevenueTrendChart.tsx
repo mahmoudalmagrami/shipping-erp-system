@@ -126,10 +126,13 @@ export const RevenueTrendChart: React.FC<Props> = ({ data, days, onDaysChange })
 
       {/* ================= PURE SVG CHART ================= */}
       <div className="relative w-full">
-        {/* Floating Tooltip */}
-        {hoveredIdx !== null && safeData[hoveredIdx] && (
+        {/* Floating Tooltip positioned dynamically */}
+        {hoveredIdx !== null && safeData[hoveredIdx] && points[hoveredIdx] && (
           <div
-            className="absolute z-20 -top-12 left-1/2 -translate-x-1/2 bg-slate-900/95 backdrop-blur-sm text-white text-xs px-3.5 py-2.5 rounded-xl shadow-xl pointer-events-none transition-all border border-slate-700 min-w-[180px]"
+            className="absolute z-20 -top-12 bg-slate-900/95 backdrop-blur-sm text-white text-xs px-3.5 py-2.5 rounded-xl shadow-xl pointer-events-none transition-all border border-slate-700 min-w-[180px] -translate-x-1/2"
+            style={{
+              left: `${Math.min(Math.max((points[hoveredIdx].cx / svgWidth) * 100, 15), 85)}%`,
+            }}
           >
             <div className="font-bold border-b border-slate-700 pb-1 text-slate-300 flex justify-between items-center mb-1">
               <span>{safeData[hoveredIdx].displayDate}</span>
@@ -222,17 +225,19 @@ export const RevenueTrendChart: React.FC<Props> = ({ data, days, onDaysChange })
                   />
                 )}
 
-                {/* X-axis date text */}
-                <text
-                  x={cx}
-                  y={marginTop + chartHeight + 18}
-                  fontSize="10"
-                  fill={isHovered ? "#1e293b" : "#94a3b8"}
-                  fontWeight={isHovered ? "bold" : "normal"}
-                  textAnchor="middle"
-                >
-                  {d.displayDate.split(' ')[0]}
-                </text>
+                {/* X-axis date text with collision prevention */}
+                {(days <= 7 || (days === 14 ? i % 2 === 0 : i % 5 === 0) || i === safeData.length - 1 || isHovered) && (
+                  <text
+                    x={cx}
+                    y={marginTop + chartHeight + 18}
+                    fontSize="10"
+                    fill={isHovered ? "#1e293b" : "#94a3b8"}
+                    fontWeight={isHovered ? "bold" : "normal"}
+                    textAnchor="middle"
+                  >
+                    {d.displayDate.split(' ')[0]}
+                  </text>
+                )}
 
                 {/* Invisible hover trigger area covering the whole vertical column */}
                 <rect

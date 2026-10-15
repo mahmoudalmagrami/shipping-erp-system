@@ -4,19 +4,24 @@ import { useQuery } from '@tanstack/react-query';
 import { getOrders, cancelOrder } from '../api/endpoints';
 import { Order } from '../types';
 import { WaybillPrintTemplate } from '../components/WaybillPrintTemplate';
-import { Eye, Printer, Ban, Download, X, Package, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { useDebounce } from '../hooks/useDebounce';
+import { Eye, Printer, Ban, Download, X, Package, CheckCircle2, Clock, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const OrdersPage: React.FC = () => {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
   const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<Order | null>(null);
   const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<Order | null>(null);
 
-  const { data: orders, isLoading, refetch } = useQuery({
-    queryKey: ['orders', search, status],
-    queryFn: () => getOrders({ search, status: status || undefined })
+  const debouncedSearch = useDebounce(search, 350);
+
+  const { data: orders, isLoading, isError, refetch } = useQuery({
+    queryKey: ['orders', debouncedSearch, status, page],
+    queryFn: () => getOrders({ search: debouncedSearch || undefined, status: status || undefined, page, pageSize })
   });
 
   const statuses = [
@@ -110,9 +115,17 @@ export const OrdersPage: React.FC = () => {
       o.createdAt ? new Date(o.createdAt).toLocaleDateString('ar-SA') : ''
     ]);
 
+    const sanitizeCSVField = (val: unknown): string => {
+      let str = String(val ?? '');
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = `'${str}`;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
     const csvContent = '\uFEFF' + [
-      headers.join(','),
-      ...rows.map(r => r.map(c => `"${String(c || '').replace(/"/g, '""')}"`).join(','))
+      headers.map(sanitizeCSVField).join(','),
+      ...rows.map(r => r.map(sanitizeCSVField).join(','))
     ].join('\r\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -140,13 +153,19 @@ export const OrdersPage: React.FC = () => {
               placeholder="بحث برقم الطلب، البوليصة، المرسل..." 
               className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none flex-1 sm:w-64 text-sm"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
             />
             <div className="flex bg-gray-100 p-1 rounded-lg">
               {statuses.map(s => (
                 <button
                   key={s.value}
-                  onClick={() => setStatus(s.value)}
+                  onClick={() => {
+                    setStatus(s.value);
+                    setPage(1);
+                  }}
                   className={`px-3 py-1 text-xs rounded-md transition-colors ${status === s.value ? 'bg-white shadow text-blue-600 font-bold' : 'text-gray-600 hover:text-gray-900'}`}
                 >
                   {s.label}
@@ -240,7 +259,49 @@ export const OrdersPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination controls */}
+        {orders && (orders.totalPages ?? 1) > 1 && (
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row gap-3 items-center justify-between">
+            <span className="text-xs text-slate-500">
+              الصفحة {orders.page || page} من {orders.totalPages} (إجمالي {orders.total ?? orders.count} شحنة)
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={page <= 1}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+              >
+                السابق
+              </button>
+              <span className="text-xs font-bold text-slate-700 px-2">{page}</span>
+              <button
+                disabled={page >= (orders.totalPages || 1)}
+                onClick={() => setPage(p => p + 1)}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+              >
+                التالي
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {isError && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-xl flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm">
+            <AlertCircle className="w-5 h-5 text-rose-600" />
+            <span>تعذر تحميل قائمة الشحنات، يرجى المحاولة مرة أخرى.</span>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="flex items-center gap-1 px-3 py-1.5 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 transition"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>إعادة المحاولة</span>
+          </button>
+        </div>
+      )}
 
       {/* ================= MODAL: ORDER DETAILS ================= */}
       {selectedOrderForDetails && (

@@ -44,4 +44,26 @@ describe('PricingCalculator', () => {
     expect(result.extraCharge).toBe(20);
     expect(result.totalSalesPrice).toBe(95);
   });
+
+  it('should match boundary weight in continuous ranges without fallback to heavy tier', () => {
+    const tiers = [
+      { id: 1, name: 'Light', minWeightKg: '0', maxWeightKg: '1', basePrice: '25' },
+      { id: 2, name: 'Medium', minWeightKg: '1.001', maxWeightKg: '5', basePrice: '45' },
+      { id: 3, name: 'Heavy', minWeightKg: '5.001', maxWeightKg: '999', basePrice: '75' },
+    ];
+
+    // 1.0005 kg should match Medium tier (id 2)
+    const result = PricingCalculator.evaluateRate(1.0005, tiers);
+    expect(result.matchedTierId).toBe(2);
+    expect(result.totalSalesPrice).toBe(45);
+  });
+
+  it('should respect custom estimatedCost from tier configuration', () => {
+    const tiers = [
+      { id: 1, name: 'Light', minWeightKg: '0', maxWeightKg: '1', basePrice: '50', estimatedCost: '22.50' },
+    ];
+
+    const result = PricingCalculator.evaluateRate(0.8, tiers);
+    expect(result.estimatedCost).toBe(22.5);
+  });
 });

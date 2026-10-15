@@ -1,9 +1,12 @@
 import crypto from 'crypto';
+import { promisify } from 'util';
 import { SignJWT, jwtVerify } from 'jose';
 import { env } from '../../config/env.js';
 import { UserRepository } from '../../repositories/UserRepository.js';
 import { AuthenticationError } from '../errors/index.js';
 import type { TokenPayload, UserRole } from '../types/index.js';
+
+const scryptAsync = promisify(crypto.scrypt);
 
 export class AuthService {
   static secret = new TextEncoder().encode(env.JWT_SECRET);
@@ -14,10 +17,25 @@ export class AuthService {
     return { hash, salt: finalSalt };
   }
 
+  static async hashPasswordAsync(password: string, salt?: string): Promise<{ hash: string; salt: string }> {
+    const finalSalt = salt || crypto.randomBytes(16).toString('hex');
+    const hash = (await scryptAsync(password, finalSalt, 64)) as Buffer;
+    return { hash: hash.toString('hex'), salt: finalSalt };
+  }
+
   static verifyPassword(password: string, hash: string, salt: string): boolean {
     const computedHash = crypto.scryptSync(password, salt, 64).toString('hex');
     try {
       return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(computedHash));
+    } catch {
+      return false;
+    }
+  }
+
+  static async verifyPasswordAsync(password: string, hash: string, salt: string): Promise<boolean> {
+    try {
+      const computedHash = (await scryptAsync(password, salt, 64)) as Buffer;
+      return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(computedHash.toString('hex')));
     } catch {
       return false;
     }
@@ -51,9 +69,13 @@ export class AuthService {
       throw new AuthenticationError('بيانات الدخول غير صحيحة');
     }
 
-    const isValid = AuthService.verifyPassword(password, user.passwordHash, user.salt);
+    const isValid = await AuthService.verifyPasswordAsync(password, user.passwordHash, user.salt);
     if (!isValid) {
       throw new AuthenticationError('بيانات الدخول غير صحيحة');
+    }
+
+    if (!user.isActive) {
+      throw new AuthenticationError('الحساب معطّل من قبل الإدارة');
     }
 
     const token = await AuthService.generateToken(user as any);

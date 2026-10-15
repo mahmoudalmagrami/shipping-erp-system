@@ -1,4 +1,4 @@
-import { desc, eq, and } from 'drizzle-orm';
+import { desc, eq, and, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { journalEntries, journalLines, cashMovements } from '../db/schema.js';
 import type { JournalEntry, NewJournalEntry, JournalLine, NewJournalLine, CashMovement, NewCashMovement } from '../domain/types/index.js';
@@ -31,11 +31,22 @@ export class JournalRepository {
     return result[0];
   }
 
-  static generateEntryNumber(): string {
+  static async generateEntryNumber(txOrDb: any = db): Promise<string> {
     const prefix = 'JRN';
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
-    return `${prefix}-${date}-${random}`;
+    const fullPrefix = `${prefix}-${date}-`;
+    const [latest] = await txOrDb
+      .select({ entryNumber: journalEntries.entryNumber })
+      .from(journalEntries)
+      .where(sql`entry_number LIKE ${fullPrefix + '%'}`)
+      .orderBy(desc(journalEntries.entryNumber))
+      .limit(1);
+
+    const nextSeq = latest
+      ? String(parseInt(latest.entryNumber.slice(-6)) + 1).padStart(6, '0')
+      : '000001';
+
+    return `${fullPrefix}${nextSeq}`;
   }
 
   static async createCashMovement(data: NewCashMovement, txOrDb: any = db): Promise<CashMovement> {

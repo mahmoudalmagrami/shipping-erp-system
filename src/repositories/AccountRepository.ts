@@ -14,9 +14,10 @@ export class AccountRepository {
   }
 
   static async updateBalance(code: string, amount: number, txOrDb: any = db): Promise<ChartOfAccount> {
+    const rounded = Math.round(amount * 100) / 100;
     const result = await txOrDb
       .update(chartOfAccounts)
-      .set({ currentBalance: sql`${chartOfAccounts.currentBalance} + ${amount}` })
+      .set({ currentBalance: sql`${chartOfAccounts.currentBalance} + ${rounded}` })
       .where(eq(chartOfAccounts.accountCode, code))
       .returning();
     return result[0]!;

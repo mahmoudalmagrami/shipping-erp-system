@@ -128,6 +128,7 @@ export const journalLines = pgTable('journal_lines', {
 }, (table) => {
   return {
     entryIdx: index('idx_journal_lines_entry').on(table.journalEntryId),
+    accountIdx: index('idx_journal_lines_account').on(table.accountCode),
   };
 });
 

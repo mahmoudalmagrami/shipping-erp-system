@@ -9,7 +9,7 @@ const querySchema = z.object({
 });
 
 export default async function analyticsRoutes(fastify: FastifyInstance) {
-  fastify.get('/dashboard', { preHandler: [authenticate, requireRole(['admin'])] }, async (request) => {
+  fastify.get('/dashboard', { preHandler: [authenticate, requireRole(['admin', 'accountant'])] }, async (request) => {
     const query = querySchema.parse(request.query);
     const analytics = await GetDashboardAnalytics.execute(query.days);
     return { success: true, data: analytics };

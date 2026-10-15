@@ -152,9 +152,17 @@ export const LedgerPage: React.FC = () => {
       });
     });
 
+    const sanitizeCSVField = (val: unknown): string => {
+      let str = String(val ?? '');
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = `'${str}`;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
     const csvContent = '\uFEFF' + [
-      headers.join(','),
-      ...rows.map((r: any[]) => r.map((c: any) => `"${String(c || '').replace(/"/g, '""')}"`).join(','))
+      headers.map(sanitizeCSVField).join(','),
+      ...rows.map((r: any[]) => r.map(sanitizeCSVField).join(','))
     ].join('\r\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

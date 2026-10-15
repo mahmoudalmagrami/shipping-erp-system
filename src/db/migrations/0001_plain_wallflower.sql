@@ -1,0 +1,1 @@
+CREATE INDEX "idx_journal_lines_account" ON "journal_lines" USING btree ("account_code");

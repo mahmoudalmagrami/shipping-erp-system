@@ -12,8 +12,8 @@ interface AuthState {
 
 const getStoredAuth = () => {
   if (typeof window === 'undefined') return { token: null, user: null };
-  const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-  const userStr = sessionStorage.getItem('user') || localStorage.getItem('user');
+  const token = sessionStorage.getItem('token');
+  const userStr = sessionStorage.getItem('user');
   if (!token || !userStr) return { token: null, user: null };
   try {
     const user = JSON.parse(userStr);
@@ -33,8 +33,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       sessionStorage.setItem('token', token);
       sessionStorage.setItem('user', JSON.stringify(user));
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
     } catch {}
     set({ token, user, isAuthenticated: true });
   },
@@ -42,8 +40,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
     } catch {}
     set({ token: null, user: null, isAuthenticated: false });
   },

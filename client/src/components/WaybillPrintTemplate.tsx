@@ -1,6 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import JsBarcode from 'jsbarcode';
 import { Order } from '../types';
 import { Printer, X, Tag, Receipt } from 'lucide-react';
+
+const Barcode: React.FC<{ value: string; height?: number; className?: string }> = ({ value, height = 40, className = '' }) => {
+  const svgRef = useRef<SVGSVGElement>(null);
+  useEffect(() => {
+    if (svgRef.current && value) {
+      try {
+        JsBarcode(svgRef.current, value, {
+          format: 'CODE128',
+          height,
+          displayValue: false,
+          margin: 0,
+        });
+      } catch (e) {}
+    }
+  }, [value, height]);
+  return <svg ref={svgRef} className={className} />;
+};
 
 interface Props {
   order: Order;
@@ -79,11 +97,9 @@ export const WaybillPrintTemplate: React.FC<Props> = ({ order, onClose }) => {
                 <div className="mt-2 text-sm font-bold tracking-wider bg-slate-100 py-1 rounded">
                   {order.orderNumber}
                 </div>
-                {/* Visual Barcode lines */}
-                <div className="flex justify-center gap-[2px] h-8 my-2 items-center">
-                  {[4,2,6,1,3,5,2,4,1,6,3,2,5,1,4,2,6,1,3,5,2,4].map((w, i) => (
-                    <div key={i} className="bg-black h-full" style={{ width: `${w}px` }} />
-                  ))}
+                {/* Visual Barcode */}
+                <div className="flex justify-center my-2 items-center">
+                  <Barcode value={order.orderNumber} height={32} className="max-w-[200px]" />
                 </div>
                 <p className="text-[10px] text-slate-500">
                   {order.createdAt ? new Date(order.createdAt).toLocaleString('ar-SA') : new Date().toLocaleString('ar-SA')}
@@ -192,11 +208,7 @@ export const WaybillPrintTemplate: React.FC<Props> = ({ order, onClose }) => {
 
               {/* Barcode visual */}
               <div className="flex flex-col items-center justify-center my-3 bg-slate-50 p-2 rounded border border-slate-200">
-                <div className="flex gap-1 h-12 items-center">
-                  {[4,1,5,2,3,6,1,4,2,5,3,1,6,2,4,1,5,3,2,6,1,4,2,5,3].map((w, i) => (
-                    <div key={i} className="bg-black h-full" style={{ width: `${w * 1.5}px` }} />
-                  ))}
-                </div>
+                <Barcode value={order.orderNumber} height={45} className="max-w-[280px]" />
                 <span className="font-mono text-xs font-bold tracking-widest mt-1">{order.orderNumber}</span>
               </div>
 

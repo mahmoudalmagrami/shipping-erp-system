@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { getCustomers, getZones, createOrder, calculateRate } from '../api/endpoints';
+import { useDebounce } from '../hooks/useDebounce';
 import toast from 'react-hot-toast';
 
 export const BookingPage: React.FC = () => {
@@ -28,21 +29,36 @@ export const BookingPage: React.FC = () => {
     notes: ''
   });
 
+  const debouncedActualWeight = useDebounce(form.actualWeight, 350);
+  const debouncedLength = useDebounce(form.length, 350);
+  const debouncedWidth = useDebounce(form.width, 350);
+  const debouncedHeight = useDebounce(form.height, 350);
+
   useEffect(() => {
-    if (form.zoneId && form.actualWeight) {
+    if (form.zoneId && debouncedActualWeight) {
       calculateRate({
         zoneId: Number(form.zoneId),
-        actualWeight: Number(form.actualWeight),
-        lengthCm: form.length ? Number(form.length) : undefined,
-        widthCm: form.width ? Number(form.width) : undefined,
-        heightCm: form.height ? Number(form.height) : undefined,
+        actualWeight: Number(debouncedActualWeight),
+        lengthCm: debouncedLength ? Number(debouncedLength) : undefined,
+        widthCm: debouncedWidth ? Number(debouncedWidth) : undefined,
+        heightCm: debouncedHeight ? Number(debouncedHeight) : undefined,
       }).then(res => {
         if (res.success && res.data) setPreviewPrice(res.data.totalSalesPrice ?? res.data.estCost);
       }).catch(() => setPreviewPrice(null));
     } else {
       setPreviewPrice(null);
     }
-  }, [form.zoneId, form.actualWeight, form.length, form.width, form.height]);
+  }, [form.zoneId, debouncedActualWeight, debouncedLength, debouncedWidth, debouncedHeight]);
+
+  const handleCustomerChange = (customerId: string) => {
+    const selected = customers?.data?.find((c: any) => String(c.id) === customerId);
+    setForm(prev => ({
+      ...prev,
+      customerId,
+      senderName: selected ? selected.fullName : prev.senderName,
+      senderPhone: selected ? (selected.phone || '') : prev.senderPhone,
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,7 +102,7 @@ export const BookingPage: React.FC = () => {
             <select 
               className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
               value={form.customerId}
-              onChange={e => setForm({...form, customerId: e.target.value})}
+              onChange={e => handleCustomerChange(e.target.value)}
             >
               <option value="">{t('booking.manualCustomer')}</option>
               {customers?.data?.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
@@ -182,10 +198,34 @@ export const BookingPage: React.FC = () => {
           </div>
         </div>
 
-        {previewPrice !== null && (
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex justify-between items-center">
-            <span className="font-semibold text-blue-900">{t('booking.preview')}</span>
-            <span className="text-xl font-bold text-blue-700">{previewPrice} ر.س</span>
+        {(previewPrice !== null || (Number(form.length) > 0 && Number(form.width) > 0 && Number(form.height) > 0)) && (
+          <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-2">
+            <div className="flex justify-between items-center border-b border-blue-100 pb-2">
+              <span className="font-semibold text-blue-900">{t('booking.preview')}</span>
+              {previewPrice !== null && (
+                <span className="text-xl font-bold text-blue-700">{previewPrice} ر.س</span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-blue-800 pt-1">
+              <div>الوزن الفعلي: <span className="font-bold">{form.actualWeight || 0} كغ</span></div>
+              {Number(form.length) > 0 && Number(form.width) > 0 && Number(form.height) > 0 && (
+                <div>
+                  الوزن الحجمي: <span className="font-bold">
+                    {(Number(form.length) * Number(form.width) * Number(form.height) / 5000).toFixed(2)} كغ
+                  </span>
+                </div>
+              )}
+              <div>
+                الوزن المحاسب: <span className="font-bold text-blue-950">
+                  {Math.max(
+                    Number(form.actualWeight) || 0,
+                    (Number(form.length) > 0 && Number(form.width) > 0 && Number(form.height) > 0)
+                      ? Number((Number(form.length) * Number(form.width) * Number(form.height) / 5000).toFixed(2))
+                      : 0
+                  )} كغ
+                </span>
+              </div>
+            </div>
           </div>
         )}
 

@@ -4,6 +4,8 @@ export interface User {
   role: 'admin' | 'cashier' | 'accountant' | 'warehouse';
   fullName?: string;
   name?: string;
+  isActive?: boolean;
+  createdAt?: string;
 }
 
 export interface Order {
@@ -141,6 +143,11 @@ export interface ApiResponse<T> {
   success: boolean;
   message?: string;
   data?: T;
+  total?: number;
+  count?: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
 }
 
 export interface DailyTrendPoint {

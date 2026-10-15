@@ -12,9 +12,14 @@ import {
   BookOpen, 
   Menu, 
   LogOut,
-  UserCheck 
+  UserCheck,
+  Users,
+  Truck,
+  FileSpreadsheet,
+  UserCog
 } from 'lucide-react';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { ErrorBoundary } from './ErrorBoundary';
 
 export const Layout: React.FC = () => {
   const { t } = useTranslation();
@@ -55,6 +60,18 @@ export const Layout: React.FC = () => {
       roles: ['admin', 'cashier', 'warehouse', 'accountant'] 
     },
     { 
+      to: '/customers', 
+      icon: Users, 
+      label: t('nav.customers'),
+      roles: ['admin', 'cashier', 'accountant'] 
+    },
+    { 
+      to: '/carriers', 
+      icon: Truck, 
+      label: t('nav.carriers'),
+      roles: ['admin', 'warehouse', 'accountant'] 
+    },
+    { 
       to: '/pricing', 
       icon: Calculator, 
       label: t('nav.pricing'),
@@ -65,6 +82,18 @@ export const Layout: React.FC = () => {
       icon: BookOpen, 
       label: t('nav.ledger'),
       roles: ['admin', 'accountant'] 
+    },
+    { 
+      to: '/reports', 
+      icon: FileSpreadsheet, 
+      label: t('nav.reports'),
+      roles: ['admin', 'accountant'] 
+    },
+    { 
+      to: '/users', 
+      icon: UserCog, 
+      label: t('nav.users'),
+      roles: ['admin'] 
     },
   ];
 
@@ -166,7 +195,9 @@ export const Layout: React.FC = () => {
         )}
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

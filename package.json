@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc && copyfiles -u 1 \"src/db/migrations/**/*\" dist/ && npm --prefix client run build",
     "start": "node dist/server.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
@@ -27,13 +27,18 @@
     "drizzle-orm": "^0.38.0",
     "fastify": "^5.1.0",
     "jose": "^6.0.0",
-    "postgres": "^3.4.5",
     "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "@types/pg": "^8.23.1",
     "@types/ws": "^8.18.2",
+    "@typescript-eslint/eslint-plugin": "^8.71.2",
+    "@typescript-eslint/parser": "^8.71.2",
+    "copyfiles": "^2.4.1",
     "drizzle-kit": "^0.30.0",
+    "eslint": "^10.12.0",
+    "pg": "^8.23.1",
     "pino-pretty": "^13.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",

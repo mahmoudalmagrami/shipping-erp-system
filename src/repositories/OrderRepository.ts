@@ -1,10 +1,13 @@
-import { eq, desc, and, or, ilike } from 'drizzle-orm';
+import { eq, desc, and, or, ilike, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { initialOrders, destinationZones, finalShipments, carrierSuppliers } from '../db/schema.js';
 import type { InitialOrder, NewInitialOrder, OrderStatus, FinalShipment, NewFinalShipment } from '../domain/types/index.js';
 
 export class OrderRepository {
-  static async getAll(filters?: { status?: OrderStatus; search?: string }, txOrDb: any = db) {
+  static async getAll(
+    filters?: { status?: OrderStatus; search?: string; limit?: number; offset?: number },
+    txOrDb: any = db
+  ) {
     const conditions = [];
     
     if (filters?.status) {
@@ -25,7 +28,7 @@ export class OrderRepository {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const rows = await txOrDb
+    let query = txOrDb
       .select({
         order: initialOrders,
         zone: destinationZones,
@@ -38,6 +41,15 @@ export class OrderRepository {
       .leftJoin(carrierSuppliers, eq(finalShipments.carrierId, carrierSuppliers.id))
       .where(whereClause)
       .orderBy(desc(initialOrders.id));
+
+    if (filters?.limit) {
+      query = query.limit(filters.limit);
+    }
+    if (filters?.offset) {
+      query = query.offset(filters.offset);
+    }
+
+    const rows = await query;
 
     return rows.map((r: any) => ({
       ...r.order,
@@ -52,6 +64,43 @@ export class OrderRepository {
       grossProfit: r.shipment ? Number(r.shipment.grossProfit) : undefined,
       dispatchedAt: r.shipment?.dispatchedAt,
     }));
+  }
+
+  static async count(
+    filters?: { status?: OrderStatus; search?: string },
+    txOrDb: any = db
+  ): Promise<number> {
+    const conditions = [];
+    if (filters?.status) {
+      conditions.push(eq(initialOrders.status, filters.status));
+    }
+    if (filters?.search) {
+      const searchTerm = `%${filters.search}%`;
+      conditions.push(
+        or(
+          ilike(initialOrders.orderNumber, searchTerm),
+          ilike(initialOrders.senderName, searchTerm),
+          ilike(initialOrders.receiverName, searchTerm),
+          ilike(finalShipments.supplierWaybillNumber, searchTerm)
+        )
+      );
+    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    let query = txOrDb
+      .select({ count: sql`COUNT(*)` })
+      .from(initialOrders);
+
+    if (filters?.search) {
+      query = query.leftJoin(finalShipments, eq(initialOrders.id, finalShipments.initialOrderId));
+    }
+
+    if (whereClause) {
+      query = query.where(whereClause);
+    }
+
+    const [res] = await query;
+    return Number(res?.count || 0);
   }
 
   static async getById(id: number, txOrDb: any = db): Promise<InitialOrder | undefined> {
@@ -115,10 +164,20 @@ export class OrderRepository {
     return result[0]!;
   }
 
-  static generateOrderNumber(): string {
-    const prefix = 'ORD';
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    return `${prefix}-${date}-${random}`;
+  static async generateOrderNumber(txOrDb: any = db): Promise<string> {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const prefix = `ORD-${today}-`;
+    const [latest] = await txOrDb
+      .select({ orderNumber: initialOrders.orderNumber })
+      .from(initialOrders)
+      .where(sql`order_number LIKE ${prefix + '%'}`)
+      .orderBy(desc(initialOrders.orderNumber))
+      .limit(1);
+
+    const nextSeq = latest
+      ? String(parseInt(latest.orderNumber.slice(-6)) + 1).padStart(6, '0')
+      : '000001';
+
+    return `${prefix}${nextSeq}`;
   }
 }

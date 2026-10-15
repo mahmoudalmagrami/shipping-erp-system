@@ -10,7 +10,11 @@ export default {
       dispatch: "Dispatch",
       orders: "Orders",
       pricing: "Pricing",
-      ledger: "Ledger"
+      ledger: "Ledger",
+      customers: "Customers",
+      carriers: "Carriers",
+      reports: "Financial Reports",
+      users: "User Management"
     },
     kpi: {
       mainCash: "Main Cash",

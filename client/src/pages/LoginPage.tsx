@@ -69,7 +69,9 @@ export const LoginPage: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-300 mb-1.5 text-right">اسم المستخدم</label>
+            <label className="block text-xs font-bold text-slate-300 mb-1.5 rtl:text-right ltr:text-left">
+              {t('login.username', 'اسم المستخدم')}
+            </label>
             <div className="relative">
               <input 
                 type="text" 
@@ -77,14 +79,16 @@ export const LoginPage: React.FC = () => {
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 placeholder="أدخل اسم المستخدم"
-                className="w-full pr-10 pl-4 py-2.5 rounded-xl bg-slate-900/60 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-right"
+                className="w-full rtl:pr-10 rtl:pl-4 ltr:pl-10 ltr:pr-4 py-2.5 rounded-xl bg-slate-900/60 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all rtl:text-right ltr:text-left"
               />
-              <User className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+              <User className="w-4 h-4 text-slate-400 absolute rtl:right-3 ltr:left-3 top-3" />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-300 mb-1.5 text-right">كلمة المرور</label>
+            <label className="block text-xs font-bold text-slate-300 mb-1.5 rtl:text-right ltr:text-left">
+              {t('login.password', 'كلمة المرور')}
+            </label>
             <div className="relative">
               <input 
                 type="password" 
@@ -92,9 +96,9 @@ export const LoginPage: React.FC = () => {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="أدخل كلمة المرور"
-                className="w-full pr-10 pl-4 py-2.5 rounded-xl bg-slate-900/60 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-right"
+                className="w-full rtl:pr-10 rtl:pl-4 ltr:pl-10 ltr:pr-4 py-2.5 rounded-xl bg-slate-900/60 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all rtl:text-right ltr:text-left"
               />
-              <Lock className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+              <Lock className="w-4 h-4 text-slate-400 absolute rtl:right-3 ltr:left-3 top-3" />
             </div>
           </div>
 
@@ -112,44 +116,46 @@ export const LoginPage: React.FC = () => {
           </button>
         </form>
 
-        {/* Quick Demo Switcher */}
-        <div className="mt-6 pt-5 border-t border-slate-700/60">
-          <p className="text-[11px] font-bold text-slate-400 mb-2.5 text-center">أزرار سريعة للاختبار حسب الدور الوظيفي:</p>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <button
-              type="button"
-              onClick={() => quickLogin('cashier', 'cashier123')}
-              className="p-2 rounded-lg bg-slate-700/40 hover:bg-slate-700 border border-slate-600/50 text-amber-400 text-right transition-colors"
-            >
-              <span className="font-bold block text-amber-300">الكاشير (الاستقبال)</span>
-              <span className="text-[10px] text-slate-400">ينقله لصفحة: حجز الشحنة</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => quickLogin('warehouse', 'wh123')}
-              className="p-2 rounded-lg bg-slate-700/40 hover:bg-slate-700 border border-slate-600/50 text-blue-400 text-right transition-colors"
-            >
-              <span className="font-bold block text-blue-300">مسؤول المستودع</span>
-              <span className="text-[10px] text-slate-400">ينقله لصفحة: الترحيل</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => quickLogin('accountant', 'acc123')}
-              className="p-2 rounded-lg bg-slate-700/40 hover:bg-slate-700 border border-slate-600/50 text-emerald-400 text-right transition-colors"
-            >
-              <span className="font-bold block text-emerald-300">المحاسب المالي</span>
-              <span className="text-[10px] text-slate-400">ينقله لصفحة: دفتر الأستاذ</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => quickLogin('admin', 'admin123')}
-              className="p-2 rounded-lg bg-slate-700/40 hover:bg-slate-700 border border-slate-600/50 text-purple-400 text-right transition-colors"
-            >
-              <span className="font-bold block text-purple-300">المدير العام</span>
-              <span className="text-[10px] text-slate-400">ينقله لصفحة: لوحة القيادة</span>
-            </button>
+        {/* Quick Demo Switcher (DEV only) */}
+        {Boolean((import.meta as any).env?.DEV) && (
+          <div className="mt-6 pt-5 border-t border-slate-700/60">
+            <p className="text-[11px] font-bold text-slate-400 mb-2.5 text-center">أزرار سريعة للاختبار (بيئة التطوير):</p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => quickLogin('cashier', 'cashier123')}
+                className="p-2 rounded-lg bg-slate-700/40 hover:bg-slate-700 border border-slate-600/50 text-amber-400 rtl:text-right ltr:text-left transition-colors"
+              >
+                <span className="font-bold block text-amber-300">الكاشير (الاستقبال)</span>
+                <span className="text-[10px] text-slate-400">ينقله لصفحة: حجز الشحنة</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => quickLogin('warehouse', 'wh123')}
+                className="p-2 rounded-lg bg-slate-700/40 hover:bg-slate-700 border border-slate-600/50 text-blue-400 rtl:text-right ltr:text-left transition-colors"
+              >
+                <span className="font-bold block text-blue-300">مسؤول المستودع</span>
+                <span className="text-[10px] text-slate-400">ينقله لصفحة: الترحيل</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => quickLogin('accountant', 'acc123')}
+                className="p-2 rounded-lg bg-slate-700/40 hover:bg-slate-700 border border-slate-600/50 text-emerald-400 rtl:text-right ltr:text-left transition-colors"
+              >
+                <span className="font-bold block text-emerald-300">المحاسب المالي</span>
+                <span className="text-[10px] text-slate-400">ينقله لصفحة: دفتر الأستاذ</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => quickLogin('admin', 'admin123')}
+                className="p-2 rounded-lg bg-slate-700/40 hover:bg-slate-700 border border-slate-600/50 text-purple-400 rtl:text-right ltr:text-left transition-colors"
+              >
+                <span className="font-bold block text-purple-300">المدير العام</span>
+                <span className="text-[10px] text-slate-400">ينقله لصفحة: لوحة القيادة</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

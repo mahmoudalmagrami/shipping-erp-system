@@ -15,22 +15,53 @@ interface JournalEntryRequest {
 
 export class AccountingEngine {
   static async postBalancedJournalEntry(req: JournalEntryRequest, tx: any = db): Promise<{ journalEntryId: number; entryNumber: string; totalDebit: number; totalCredit: number }> {
+    // 1. إذا لم يُمرر المعامل الخارجي، نغلف العملية ذاتياً داخل معاملة ذرية لمنع الكتابة الجزئية
+    if (tx === db) {
+      return db.transaction(async (newTx) => this.postBalancedJournalEntry(req, newTx));
+    }
+
+    // 2. التحقق من وجود سطرين على الأقل للقيد المزدوج
+    if (!req.lines || req.lines.length < 2) {
+      throw new AccountingError('يجب أن يحتوي القيد المحاسبي على طرفين على الأقل (مدين ودائن)');
+    }
+
     let totalDebit = 0;
     let totalCredit = 0;
 
-    for (const line of req.lines) {
-      if (line.debit > 0 && line.credit > 0) {
+    // 3. تقريب كل سطر بدقة خانتين عشريتين وفحص القيم السالبة والصفرية
+    const sanitizedLines = req.lines.map((line) => {
+      const debit = Math.round(Math.max(0, line.debit) * 100) / 100;
+      const credit = Math.round(Math.max(0, line.credit) * 100) / 100;
+
+      if (line.debit < 0 || line.credit < 0) {
+        throw new AccountingError('لا يُسمح بالمبالغ السالبة في أسطر القيد المحاسبي');
+      }
+      if (debit > 0 && credit > 0) {
         throw new AccountingError('لا يمكن أن يحتوي السطر على مدين ودائن في نفس الوقت');
       }
-      totalDebit += line.debit;
-      totalCredit += line.credit;
-    }
+      if (debit === 0 && credit === 0) {
+        throw new AccountingError('لا يمكن تسجيل سطر قيد محاسبي بمبلغ صفر');
+      }
 
+      totalDebit += debit;
+      totalCredit += credit;
+
+      return {
+        ...line,
+        debit,
+        credit,
+      };
+    });
+
+    totalDebit = Math.round(totalDebit * 100) / 100;
+    totalCredit = Math.round(totalCredit * 100) / 100;
+
+    // 4. مطابقة تامة بعد التقريب
     if (Math.abs(totalDebit - totalCredit) > 0.001) {
-      throw new AccountingError('القيد المحاسبي غير متزن: مجموع المدين لا يساوي مجموع الدائن');
+      throw new AccountingError(`القيد المحاسبي غير متزن: مجموع المدين (${totalDebit}) لا يساوي مجموع الدائن (${totalCredit})`);
     }
 
-    const entryNumber = JournalRepository.generateEntryNumber();
+    const entryNumber = await JournalRepository.generateEntryNumber(tx);
     
     const entry = await JournalRepository.createEntry({
       entryNumber,
@@ -43,7 +74,7 @@ export class AccountingEngine {
 
     const journalEntryId = entry.id;
 
-    for (const line of req.lines) {
+    for (const line of sanitizedLines) {
       await JournalRepository.createLine({
         journalEntryId,
         accountCode: line.accountCode,
@@ -57,13 +88,14 @@ export class AccountingEngine {
         throw new AccountingError(`الحساب رقم [${line.accountCode}] غير موجود في دليل الحسابات`);
       }
       
-      let balanceChange = 0;
+      let rawBalanceChange = 0;
       if (account.accountType === 'asset' || account.accountType === 'expense') {
-        balanceChange = line.debit - line.credit;
+        rawBalanceChange = line.debit - line.credit;
       } else {
-        balanceChange = line.credit - line.debit;
+        rawBalanceChange = line.credit - line.debit;
       }
       
+      const balanceChange = Math.round(rawBalanceChange * 100) / 100;
       await AccountRepository.updateBalance(line.accountCode, balanceChange, tx);
     }
 
@@ -87,35 +119,9 @@ export class AccountingEngine {
     if (params.paymentType === 'cash') {
       // الصندوق الرئيسي مدين (1010)
       lines.push({ accountCode: '1010', debit: params.amount, credit: 0, memo });
-      
-      const currentVault = await AccountRepository.getByCode('1010', tx);
-      const balanceAfter = (Number(currentVault?.currentBalance || 0) + params.amount).toFixed(2);
-
-      await JournalRepository.createCashMovement({
-        accountCode: '1010',
-        orderId: params.orderId,
-        movementType: 'inflow',
-        amount: params.amount.toFixed(2),
-        balanceAfter,
-        notes: memo,
-      }, tx);
-
     } else if (params.paymentType === 'bank') {
       // حساب البنك/الصراف مدين (1020)
       lines.push({ accountCode: '1020', debit: params.amount, credit: 0, memo });
-
-      const currentVault = await AccountRepository.getByCode('1020', tx);
-      const balanceAfter = (Number(currentVault?.currentBalance || 0) + params.amount).toFixed(2);
-
-      await JournalRepository.createCashMovement({
-        accountCode: '1020',
-        orderId: params.orderId,
-        movementType: 'inflow',
-        amount: params.amount.toFixed(2),
-        balanceAfter,
-        notes: memo,
-      }, tx);
-
     } else if (params.paymentType === 'credit') {
       // ذمم العملاء مدينة (1100)
       lines.push({ accountCode: '1100', debit: params.amount, credit: 0, memo });
@@ -124,12 +130,29 @@ export class AccountingEngine {
       }
     }
 
-    return this.postBalancedJournalEntry({
+    const journalResult = await this.postBalancedJournalEntry({
       referenceType: 'initial_order',
       referenceId: params.orderId,
       description: memo,
       lines,
     }, tx);
+
+    if (params.paymentType === 'cash' || params.paymentType === 'bank') {
+      const vaultCode = params.paymentType === 'bank' ? '1020' : '1010';
+      const currentVault = await AccountRepository.getByCode(vaultCode, tx);
+      const balanceAfter = Number(currentVault?.currentBalance || 0).toFixed(2);
+
+      await JournalRepository.createCashMovement({
+        accountCode: vaultCode,
+        orderId: params.orderId,
+        movementType: 'inflow',
+        amount: params.amount.toFixed(2),
+        balanceAfter,
+        notes: memo,
+      }, tx);
+    }
+
+    return journalResult;
   }
 
   static async processFinalDispatchAccounting(params: {
@@ -202,7 +225,8 @@ export class AccountingEngine {
     paymentMethod: 'cash' | 'bank';
     notes?: string;
   }, tx: any = db) {
-    if (params.amount <= 0) {
+    const roundedAmount = Math.round(params.amount * 100) / 100;
+    if (roundedAmount <= 0) {
       throw new AccountingError('مبلغ سند القبض يجب أن يكون أكبر من الصفر');
     }
     const customer = await CustomerRepository.getById(params.customerId, tx);
@@ -214,29 +238,31 @@ export class AccountingEngine {
     const vaultCode = params.paymentMethod === 'bank' ? '1020' : '1010';
 
     const lines: JournalLineInput[] = [
-      { accountCode: vaultCode, debit: params.amount, credit: 0, memo },
-      { accountCode: '1100', debit: 0, credit: params.amount, memo },
+      { accountCode: vaultCode, debit: roundedAmount, credit: 0, memo },
+      { accountCode: '1100', debit: 0, credit: roundedAmount, memo },
     ];
 
-    await CustomerRepository.updateBalance(params.customerId, -params.amount, tx);
+    await CustomerRepository.updateBalance(params.customerId, -roundedAmount, tx);
 
-    const vault = await AccountRepository.getByCode(vaultCode, tx);
-    const balanceAfter = (Number(vault?.currentBalance || 0) + params.amount).toFixed(2);
-
-    await JournalRepository.createCashMovement({
-      accountCode: vaultCode,
-      movementType: 'inflow',
-      amount: params.amount.toFixed(2),
-      balanceAfter,
-      notes: memo,
-    }, tx);
-
-    return this.postBalancedJournalEntry({
+    const journalResult = await this.postBalancedJournalEntry({
       referenceType: 'receipt_voucher',
       referenceId: params.customerId,
       description: memo,
       lines,
     }, tx);
+
+    const vault = await AccountRepository.getByCode(vaultCode, tx);
+    const balanceAfter = Number(vault?.currentBalance || 0).toFixed(2);
+
+    await JournalRepository.createCashMovement({
+      accountCode: vaultCode,
+      movementType: 'inflow',
+      amount: roundedAmount.toFixed(2),
+      balanceAfter,
+      notes: memo,
+    }, tx);
+
+    return journalResult;
   }
 
   static async processCarrierPaymentVoucher(params: {
@@ -245,7 +271,8 @@ export class AccountingEngine {
     paymentMethod: 'cash' | 'bank';
     notes?: string;
   }, tx: any = db) {
-    if (params.amount <= 0) {
+    const roundedAmount = Math.round(params.amount * 100) / 100;
+    if (roundedAmount <= 0) {
       throw new AccountingError('مبلغ سند الصرف يجب أن يكون أكبر من الصفر');
     }
     const carrier = await CarrierRepository.getById(params.carrierId, tx);
@@ -257,14 +284,21 @@ export class AccountingEngine {
     const vaultCode = params.paymentMethod === 'bank' ? '1020' : '1010';
 
     const lines: JournalLineInput[] = [
-      { accountCode: '2100', debit: params.amount, credit: 0, memo },
-      { accountCode: vaultCode, debit: 0, credit: params.amount, memo },
+      { accountCode: '2100', debit: roundedAmount, credit: 0, memo },
+      { accountCode: vaultCode, debit: 0, credit: roundedAmount, memo },
     ];
 
-    await CarrierRepository.updateBalance(params.carrierId, -params.amount, tx);
+    await CarrierRepository.updateBalance(params.carrierId, -roundedAmount, tx);
+
+    const journalResult = await this.postBalancedJournalEntry({
+      referenceType: 'payment_voucher',
+      referenceId: params.carrierId,
+      description: memo,
+      lines,
+    }, tx);
 
     const vault = await AccountRepository.getByCode(vaultCode, tx);
-    const balanceAfter = (Number(vault?.currentBalance || 0) - params.amount).toFixed(2);
+    const balanceAfter = Number(vault?.currentBalance || 0).toFixed(2);
 
     await JournalRepository.createCashMovement({
       accountCode: vaultCode,
@@ -274,11 +308,6 @@ export class AccountingEngine {
       notes: memo,
     }, tx);
 
-    return this.postBalancedJournalEntry({
-      referenceType: 'payment_voucher',
-      referenceId: params.carrierId,
-      description: memo,
-      lines,
-    }, tx);
+    return journalResult;
   }
 }

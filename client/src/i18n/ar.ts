@@ -10,7 +10,11 @@ export default {
       dispatch: "ترحيل",
       orders: "الطلبات",
       pricing: "التسعير",
-      ledger: "دفتر الأستاذ"
+      ledger: "دفتر الأستاذ",
+      customers: "العملاء",
+      carriers: "الناقلون",
+      reports: "التقارير المالية",
+      users: "إدارة المستخدمين"
     },
     kpi: {
       mainCash: "النقدية الرئيسية",

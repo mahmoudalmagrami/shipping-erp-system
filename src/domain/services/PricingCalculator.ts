@@ -11,6 +11,8 @@ export interface RateTier {
   basePrice?: string;
   baseSellingPrice?: string;
   extraKgPrice?: string;
+  estimatedCost?: string | number;
+  estCost?: string | number;
 }
 
 export interface RateResult {
@@ -44,13 +46,25 @@ export class PricingCalculator {
       throw new BusinessRuleError('لا توجد شرائح تسعير معرفة لهذه الوجهة');
     }
 
-    const matchedTier = tiers.find((tier) => {
-      const min = Number(tier.minWeightKg ?? tier.weightMinKg ?? 0);
-      const max = Number(tier.maxWeightKg ?? tier.weightMaxKg ?? 999999);
-      return weight >= min && weight <= max;
+    const roundedWeight = Math.round(weight * 1000) / 1000;
+
+    // فرز الشرائح تصاعدياً حسب الوزن الأدنى
+    const sortedTiers = [...tiers].sort((a, b) => {
+      const minA = Number(a.minWeightKg ?? a.weightMinKg ?? 0);
+      const minB = Number(b.minWeightKg ?? b.weightMinKg ?? 0);
+      return minA - minB;
     });
 
-    const selectedTier = matchedTier || tiers[tiers.length - 1];
+    const matchedTier = sortedTiers.find((tier, idx) => {
+      const min = Number(tier.minWeightKg ?? tier.weightMinKg ?? 0);
+      const max = Number(tier.maxWeightKg ?? tier.weightMaxKg ?? 999999);
+      if (idx === 0) {
+        return roundedWeight >= min && roundedWeight <= max;
+      }
+      return (roundedWeight > min || Math.abs(roundedWeight - min) <= 0.001) && roundedWeight <= max;
+    });
+
+    const selectedTier = matchedTier || sortedTiers[sortedTiers.length - 1];
     if (!selectedTier) {
       throw new BusinessRuleError('لا توجد شريحة تسعير مناسبة لهذا الوزن');
     }
@@ -61,12 +75,13 @@ export class PricingCalculator {
 
     let extraWeightKg = 0;
     if (extraKgPrice > 0) {
-      extraWeightKg = Math.max(0, Math.ceil(weight - minWeight));
+      extraWeightKg = Math.max(0, Math.ceil(roundedWeight - minWeight));
     }
 
     const extraCharge = Math.round(extraWeightKg * extraKgPrice * 100) / 100;
     const totalSalesPrice = Math.round((basePrice + extraCharge) * 100) / 100;
-    const estimatedCost = Math.round(totalSalesPrice * 0.6 * 100) / 100;
+    const tierCost = Number(selectedTier.estimatedCost ?? selectedTier.estCost ?? 0);
+    const estimatedCost = tierCost > 0 ? tierCost : Math.round(totalSalesPrice * 0.6 * 100) / 100;
 
     return {
       matchedTierId: selectedTier.id,

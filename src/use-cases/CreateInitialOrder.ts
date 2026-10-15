@@ -76,7 +76,7 @@ export class CreateInitialOrder {
     const rate = PricingCalculator.evaluateRate(chargeableWeight, tiers as any);
 
     return db.transaction(async (tx) => {
-      const orderNumber = OrderRepository.generateOrderNumber();
+      const orderNumber = await OrderRepository.generateOrderNumber(tx);
       
       const order = await OrderRepository.create({
         orderNumber,

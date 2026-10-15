@@ -1,6 +1,6 @@
-import { count, eq } from 'drizzle-orm';
+import { count, inArray } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { initialOrders } from '../db/schema.js';
+import { initialOrders, journalLines } from '../db/schema.js';
 import { AccountRepository } from '../repositories/AccountRepository.js';
 import { JournalRepository } from '../repositories/JournalRepository.js';
 
@@ -29,26 +29,49 @@ export class GetFinancialSummary {
     const grossProfit = Math.round((totalSales - totalCost) * 100) / 100;
     const profitMarginPct = totalSales > 0 ? Math.round((grossProfit / totalSales) * 10000) / 100 : 0;
 
-    // Order Counts
-    const totalOrdersRes = await db.select({ value: count() }).from(initialOrders);
-    const pendingOrdersRes = await db.select({ value: count() }).from(initialOrders).where(eq(initialOrders.status, 'initial'));
-    const dispatchedOrdersRes = await db.select({ value: count() }).from(initialOrders).where(eq(initialOrders.status, 'final_dispatched'));
-
-    const totalOrders = totalOrdersRes[0]?.value || 0;
-    const pendingOrders = pendingOrdersRes[0]?.value || 0;
-    const dispatchedOrders = dispatchedOrdersRes[0]?.value || 0;
-
-    // Recent Journals with Lines
-    const recentJournals = await JournalRepository.getRecentEntries(10);
-    const detailedJournals = await Promise.all(
-      recentJournals.map(async (j) => {
-        const lines = await JournalRepository.getLinesByEntryId(j.id);
-        return {
-          ...j,
-          lines,
-        };
+    // Order Counts - استعلام تجميعي واحد بدلاً من 3 استعلامات منفصلة
+    const statusCounts = await db
+      .select({
+        status: initialOrders.status,
+        count: count(),
       })
-    );
+      .from(initialOrders)
+      .groupBy(initialOrders.status);
+
+    let totalOrders = 0;
+    let pendingOrders = 0;
+    let dispatchedOrders = 0;
+
+    for (const sc of statusCounts) {
+      const c = Number(sc.count || 0);
+      totalOrders += c;
+      if (sc.status === 'initial') pendingOrders = c;
+      if (sc.status === 'final_dispatched') dispatchedOrders = c;
+    }
+
+    // Recent Journals with Lines - جلب دفعة واحدة بدون N+1
+    const recentJournals = await JournalRepository.getRecentEntries(10);
+    const entryIds = recentJournals.map((j) => j.id);
+
+    let detailedJournals: any[] = [];
+    if (entryIds.length > 0) {
+      const allLines = await db
+        .select()
+        .from(journalLines)
+        .where(inArray(journalLines.journalEntryId, entryIds));
+
+      const linesByEntry = new Map<number, any[]>();
+      for (const line of allLines) {
+        const list = linesByEntry.get(line.journalEntryId) || [];
+        list.push(line);
+        linesByEntry.set(line.journalEntryId, list);
+      }
+
+      detailedJournals = recentJournals.map((j) => ({
+        ...j,
+        lines: linesByEntry.get(j.id) || [],
+      }));
+    }
 
     const recentCashMovements = await JournalRepository.getRecentCashMovements(10);
 

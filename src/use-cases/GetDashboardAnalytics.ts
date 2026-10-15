@@ -1,6 +1,6 @@
+import { sql } from 'drizzle-orm';
+import { db } from '../db/index.js';
 import { AccountRepository } from '../repositories/AccountRepository.js';
-import { OrderRepository } from '../repositories/OrderRepository.js';
-import { CarrierRepository } from '../repositories/CarrierRepository.js';
 
 export interface DailyTrendPoint {
   date: string;
@@ -60,10 +60,37 @@ export interface DashboardAnalyticsResponse {
 
 export class GetDashboardAnalytics {
   static async execute(days: number = 14): Promise<DashboardAnalyticsResponse> {
-    const [accounts, allOrders, carriers] = await Promise.all([
+    const [accounts, statusResult, dailyTrendResult, carrierShareResult] = await Promise.all([
       AccountRepository.getAll(),
-      OrderRepository.getAll(),
-      CarrierRepository.getAll(),
+      db.execute(sql`
+        SELECT status, COUNT(*)::int as count 
+        FROM initial_orders 
+        GROUP BY status
+      `),
+      db.execute(sql`
+        SELECT
+          TO_CHAR(io.created_at, 'YYYY-MM-DD') as day,
+          COUNT(*)::int as order_count,
+          COALESCE(SUM(CASE WHEN io.status != 'cancelled' THEN io.total_sales_amount::numeric ELSE 0 END), 0)::float as sales,
+          COALESCE(SUM(CASE WHEN io.status != 'cancelled' THEN COALESCE(fs.carrier_cost::numeric, 0) ELSE 0 END), 0)::float as cost
+        FROM initial_orders io
+        LEFT JOIN final_shipments fs ON io.id = fs.initial_order_id
+        WHERE io.created_at >= NOW() - (${days} || ' days')::interval
+        GROUP BY TO_CHAR(io.created_at, 'YYYY-MM-DD')
+      `),
+      db.execute(sql`
+        SELECT
+          cs.id as carrier_id,
+          cs.name as carrier_name,
+          cs.carrier_code as carrier_code,
+          COUNT(fs.id)::int as shipments_count,
+          COALESCE(SUM(fs.carrier_cost::numeric), 0)::float as total_cost,
+          COALESCE(SUM(io.total_sales_amount::numeric), 0)::float as total_sales
+        FROM carrier_suppliers cs
+        LEFT JOIN final_shipments fs ON cs.id = fs.carrier_id
+        LEFT JOIN initial_orders io ON fs.initial_order_id = io.id AND io.status = 'final_dispatched'
+        GROUP BY cs.id, cs.name, cs.carrier_code
+      `),
     ]);
 
     // 1. Account balances
@@ -91,20 +118,22 @@ export class GetDashboardAnalytics {
       ? Math.round((accountsReceivable / accountsPayableCarriers) * 10000) / 100
       : 100;
 
-    // 2. Order status counts
+    // 2. Order status counts via SQL
     let initialCount = 0;
     let dispatchedCount = 0;
     let cancelledCount = 0;
+    let totalOrdersCount = 0;
 
-    for (const order of allOrders) {
-      if (order.status === 'initial') initialCount++;
-      else if (order.status === 'final_dispatched') dispatchedCount++;
-      else if (order.status === 'cancelled') cancelledCount++;
+    const statusRows = ((statusResult as any).rows || statusResult) as Array<{ status: string; count: number }>;
+    for (const row of statusRows) {
+      const count = Number(row.count || 0);
+      totalOrdersCount += count;
+      if (row.status === 'initial') initialCount = count;
+      else if (row.status === 'final_dispatched') dispatchedCount = count;
+      else if (row.status === 'cancelled') cancelledCount = count;
     }
 
-    const totalOrdersCount = allOrders.length;
-
-    // 3. Daily trend (past N days)
+    // 3. Daily trend (past N days) via SQL
     const trendMap = new Map<string, { sales: number; cost: number; profit: number; orderCount: number }>();
 
     // Generate date sequence for the last N days
@@ -116,21 +145,24 @@ export class GetDashboardAnalytics {
       trendMap.set(dateKey, { sales: 0, cost: 0, profit: 0, orderCount: 0 });
     }
 
-    for (const order of allOrders) {
-      if (!order.createdAt) continue;
-      const orderDate = new Date(order.createdAt).toISOString().split('T')[0];
-      
-      // If within our monitored range
-      if (trendMap.has(orderDate)) {
-        const entry = trendMap.get(orderDate)!;
-        entry.orderCount += 1;
-        if (order.status !== 'cancelled') {
-          const salesVal = Number(order.amount || order.totalSalesAmount || 0);
-          const costVal = Number(order.carrierCost || 0);
-          entry.sales += salesVal;
-          entry.cost += costVal;
-          entry.profit += (salesVal - costVal);
-        }
+    const trendRows = ((dailyTrendResult as any).rows || dailyTrendResult) as Array<{
+      day: string;
+      order_count: number;
+      sales: number;
+      cost: number;
+    }>;
+
+    for (const row of trendRows) {
+      const dateKey = row.day;
+      if (trendMap.has(dateKey)) {
+        const sales = Number(row.sales || 0);
+        const cost = Number(row.cost || 0);
+        trendMap.set(dateKey, {
+          orderCount: Number(row.order_count || 0),
+          sales,
+          cost,
+          profit: sales - cost,
+        });
       }
     }
 
@@ -147,36 +179,34 @@ export class GetDashboardAnalytics {
       };
     });
 
-    // 4. Carrier Volume & Cost Share
-    const carrierMap = new Map<number, { count: number; totalCost: number; totalSales: number }>();
-    let totalDispatchedWithCarrier = 0;
+    // 4. Carrier Volume & Cost Share via SQL
+    const carrierRows = ((carrierShareResult as any).rows || carrierShareResult) as Array<{
+      carrier_id: number;
+      carrier_name: string;
+      carrier_code: string;
+      shipments_count: number;
+      total_cost: number;
+      total_sales: number;
+    }>;
 
-    for (const order of allOrders) {
-      if (order.status === 'final_dispatched' && (order as any).carrierId) {
-        const carrierId = (order as any).carrierId;
-        totalDispatchedWithCarrier++;
-        const cur = carrierMap.get(carrierId) || { count: 0, totalCost: 0, totalSales: 0 };
-        cur.count += 1;
-        cur.totalCost += Number(order.carrierCost || 0);
-        cur.totalSales += Number(order.amount || order.totalSalesAmount || 0);
-        carrierMap.set(carrierId, cur);
-      }
-    }
+    const totalDispatchedWithCarrier = carrierRows.reduce((sum, r) => sum + Number(r.shipments_count || 0), 0);
 
-    const carrierShare: CarrierShareItem[] = carriers.map((c) => {
-      const stats = carrierMap.get(c.id) || { count: 0, totalCost: 0, totalSales: 0 };
+    const carrierShare: CarrierShareItem[] = carrierRows.map((r) => {
+      const count = Number(r.shipments_count || 0);
       const percentage = totalDispatchedWithCarrier > 0
-        ? Math.round((stats.count / totalDispatchedWithCarrier) * 1000) / 10
+        ? Math.round((count / totalDispatchedWithCarrier) * 1000) / 10
         : 0;
+      const totalCost = Number(r.total_cost || 0);
+      const totalSales = Number(r.total_sales || 0);
       return {
-        carrierId: c.id,
-        carrierName: c.name,
-        carrierCode: c.carrierCode,
-        shipmentsCount: stats.count,
+        carrierId: Number(r.carrier_id),
+        carrierName: r.carrier_name,
+        carrierCode: r.carrier_code,
+        shipmentsCount: count,
         percentage,
-        totalCost: Math.round(stats.totalCost * 100) / 100,
-        totalSales: Math.round(stats.totalSales * 100) / 100,
-        grossProfit: Math.round((stats.totalSales - stats.totalCost) * 100) / 100,
+        totalCost: Math.round(totalCost * 100) / 100,
+        totalSales: Math.round(totalSales * 100) / 100,
+        grossProfit: Math.round((totalSales - totalCost) * 100) / 100,
       };
     }).sort((a, b) => b.shipmentsCount - a.shipmentsCount);
 

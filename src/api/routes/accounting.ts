@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authenticate, requireRole } from '../middlewares/auth.js';
+import { db } from '../../db/index.js';
 import { GetFinancialSummary } from '../../use-cases/GetFinancialSummary.js';
 import { AccountingEngine } from '../../domain/services/AccountingEngine.js';
 
@@ -27,7 +28,9 @@ export default async function accountingRoutes(fastify: FastifyInstance) {
   // سند قبض من عميل (تسديد ذمم مدينة)
   fastify.post('/vouchers/receipt', { preHandler: [authenticate, requireRole(['admin', 'accountant', 'cashier'])] }, async (request) => {
     const data = receiptSchema.parse(request.body);
-    const result = await AccountingEngine.processCustomerReceiptVoucher(data);
+    const result = await db.transaction(async (tx) => {
+      return await AccountingEngine.processCustomerReceiptVoucher(data, tx);
+    });
     fastify.broadcastUpdate('voucher_created', result);
     return { success: true, message: `تم تسجيل سند القبض برقم [${result.entryNumber}] بنجاح`, data: result };
   });
@@ -35,7 +38,9 @@ export default async function accountingRoutes(fastify: FastifyInstance) {
   // سند صرف لشركة شحن (تسديد ذمم دائنة)
   fastify.post('/vouchers/payment', { preHandler: [authenticate, requireRole(['admin', 'accountant'])] }, async (request) => {
     const data = paymentSchema.parse(request.body);
-    const result = await AccountingEngine.processCarrierPaymentVoucher(data);
+    const result = await db.transaction(async (tx) => {
+      return await AccountingEngine.processCarrierPaymentVoucher(data, tx);
+    });
     fastify.broadcastUpdate('voucher_created', result);
     return { success: true, message: `تم تسجيل سند الصرف برقم [${result.entryNumber}] بنجاح`, data: result };
   });
